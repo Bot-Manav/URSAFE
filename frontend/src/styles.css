@@ -1,0 +1,75 @@
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #f4f5f7;
+  color: #1a1a2e;
+}
+
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.auth-form {
+  background: white;
+  padding: 2.5rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  width: 360px;
+}
+.auth-form h1 { margin: 0 0 0.25rem; font-size: 1.4rem; }
+.subtitle { color: #666; margin-top: 0; }
+.auth-form label { display: block; margin-bottom: 1rem; font-size: 0.9rem; }
+.auth-form input, .auth-form select {
+  width: 100%; padding: 0.6rem; margin-top: 0.3rem;
+  border: 1px solid #ccc; border-radius: 6px; font-size: 0.95rem;
+}
+.hint { color: #888; font-size: 0.75rem; }
+.auth-form button {
+  width: 100%; padding: 0.7rem; background: #1a1a2e; color: white;
+  border: none; border-radius: 6px; cursor: pointer; font-size: 1rem;
+}
+.auth-form button:disabled { opacity: 0.6; cursor: not-allowed; }
+.switch-link { text-align: center; font-size: 0.85rem; margin-top: 1rem; }
+.error-banner {
+  background: #fdecea; color: #b3261e; padding: 0.6rem 0.9rem;
+  border-radius: 6px; margin-bottom: 1rem; font-size: 0.85rem;
+}
+
+.page { max-width: 900px; margin: 0 auto; padding: 1.5rem; }
+.topbar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 1rem 0; margin-bottom: 1.5rem; border-bottom: 1px solid #ddd;
+}
+.role-badge {
+  margin-left: 0.6rem; background: #e8e8f0; padding: 0.2rem 0.6rem;
+  border-radius: 12px; font-size: 0.75rem;
+}
+.link-btn {
+  background: none; border: none; color: #4c4cff; cursor: pointer;
+  margin-left: 1rem; font-size: 0.9rem;
+}
+
+.card {
+  background: white; border-radius: 10px; padding: 1.5rem;
+  margin-bottom: 1.5rem; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.inline-form { display: flex; gap: 0.6rem; }
+.inline-form input { flex: 1; padding: 0.5rem; border: 1px solid #ccc; border-radius: 6px; }
+.inline-form button, .upload-form button {
+  padding: 0.5rem 1rem; background: #1a1a2e; color: white;
+  border: none; border-radius: 6px; cursor: pointer;
+}
+
+.case-list { list-style: none; padding: 0; }
+.case-list li { padding: 0.6rem 0; border-bottom: 1px solid #eee; }
+.case-list a { text-decoration: none; color: #1a1a2e; }
+
+.upload-form { display: flex; gap: 0.8rem; align-items: center; }
+
+.doc-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.doc-table th { text-align: left; padding: 0.5rem; border-bottom: 2px solid #eee; color: #666; }
+.doc-table td { padding: 0.5rem; border-bottom: 1px solid #f0f0f0; }
+.hash-cell { font-family: monospace; font-size: 0.8rem; }

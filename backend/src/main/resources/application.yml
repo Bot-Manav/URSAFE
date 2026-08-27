@@ -1,0 +1,43 @@
+server:
+  port: 8080
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:dms}
+    username: ${DB_USER:dms}
+    password: ${DB_PASSWORD:}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 20
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 25MB
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:}
+    expiration-ms: ${JWT_EXPIRATION_MS:3600000}
+  encryption:
+    key: ${AES_KEY:}
+  storage:
+    base-path: ${STORAGE_PATH:../storage/documents}
+  cors:
+    allowed-origins: ${CORS_ORIGINS:http://localhost:5173}
+  security:
+    max-login-attempts: 5
+    lockout-duration-minutes: 15
+
+logging:
+  level:
+    com.thecatalyst.dms: INFO
+    org.springframework.security: WARN

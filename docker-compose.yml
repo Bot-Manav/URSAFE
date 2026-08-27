@@ -1,0 +1,55 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: dms-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-dms}
+      POSTGRES_USER: ${DB_USER:-dms}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+    ports:
+      - "5433:5432"
+    volumes:
+      - dms_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-dms}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    container_name: dms-backend
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-dms}
+      - DB_USER=${DB_USER:-dms}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRATION_MS=${JWT_EXPIRATION_MS}
+      - AES_KEY=${AES_KEY}
+      - CORS_ORIGINS=${CORS_ORIGINS}
+      - STORAGE_PATH=/app/storage
+    volumes:
+      - ./storage:/app/storage
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    container_name: dms-frontend
+    restart: unless-stopped
+    ports:
+      - "5174:5173"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8081
+    depends_on:
+      - backend
+
+volumes:
+  dms_pgdata:

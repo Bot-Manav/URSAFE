@@ -1,6 +1,7 @@
 package com.thecatalyst.dms.controller;
 
 import com.thecatalyst.dms.dto.DocumentResponse;
+import com.thecatalyst.dms.entity.DocumentTag;
 import com.thecatalyst.dms.security.AuthenticatedUser;
 import com.thecatalyst.dms.service.DocumentService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -30,10 +31,12 @@ public class DocumentController {
     @PostMapping(value = "/cases/{caseId}/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<DocumentResponse> upload(@PathVariable UUID caseId,
                                                      @RequestParam("file") MultipartFile file,
+                                                     @RequestParam(value = "documentGroupId", required = false) UUID documentGroupId,
+                                                     @RequestParam(value = "tag", required = false) DocumentTag tag,
                                                      @AuthenticationPrincipal AuthenticatedUser actor,
                                                      HttpServletRequest httpRequest) {
         DocumentResponse response = documentService.upload(
-                caseId, file, actor, RequestUtils.clientIp(httpRequest));
+                caseId, file, documentGroupId, tag, actor, RequestUtils.clientIp(httpRequest));
         return ResponseEntity.ok(response);
     }
 
@@ -60,5 +63,13 @@ public class DocumentController {
                 .contentType(MediaType.parseMediaType(
                         result.contentType() != null ? result.contentType() : "application/octet-stream"))
                 .body(new ByteArrayResource(result.content()));
+    }
+
+    @DeleteMapping("/documents/{documentId}")
+    public ResponseEntity<Void> delete(@PathVariable UUID documentId,
+                                         @AuthenticationPrincipal AuthenticatedUser actor,
+                                         HttpServletRequest httpRequest) {
+        documentService.delete(documentId, actor, RequestUtils.clientIp(httpRequest));
+        return ResponseEntity.noContent().build();
     }
 }

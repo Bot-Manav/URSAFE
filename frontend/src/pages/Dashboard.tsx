@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { QRCodeSVG } from 'qrcode.react'
 import { apiClient } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 
@@ -17,6 +18,39 @@ export default function Dashboard() {
   const [title, setTitle] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+
+  const [mfaSetup, setMfaSetup] = useState<{ qrCodeUri: string; manualCode: string } | null>(null)
+  const [mfaConfirmCode, setMfaConfirmCode] = useState('')
+  const [mfaLoading, setMfaLoading] = useState(false)
+
+  async function handleSetupMfa() {
+    setError(null)
+    setMfaLoading(true)
+    try {
+      const { data } = await apiClient.post('/api/auth/setup-mfa')
+      setMfaSetup(data)
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Could not initiate MFA setup')
+    } finally {
+      setMfaLoading(false)
+    }
+  }
+
+  async function handleConfirmMfa(e: FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setMfaLoading(true)
+    try {
+      await apiClient.post('/api/auth/confirm-mfa', { code: mfaConfirmCode })
+      alert('MFA Enabled Successfully!')
+      setMfaSetup(null)
+      setMfaConfirmCode('')
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Invalid MFA code')
+    } finally {
+      setMfaLoading(false)
+    }
+  }
 
   const canCreateCase = user?.role === 'ADMIN' || user?.role === 'LAW_ENFORCEMENT' || user?.role === 'INVESTIGATION_OFFICER'
 
@@ -54,7 +88,7 @@ export default function Dashboard() {
       <header className="topbar">
         <div>
           <strong>Secure DMS</strong>
-          <span className="role-badge">{user?.role.replaceAll('_', ' ')}</span>
+          <span className="role-badge">{user?.role.replace(/_/g, ' ')}</span>
         </div>
         <div>
           <span>{user?.fullName}</span>
@@ -92,6 +126,35 @@ export default function Dashboard() {
                 </li>
               ))}
             </ul>
+          )}
+        </section>
+        
+        <section className="card">
+          <h2>Security</h2>
+          {!mfaSetup ? (
+             <button onClick={handleSetupMfa} disabled={mfaLoading}>
+               {mfaLoading ? 'Loading...' : 'Set up Multi-Factor Authentication'}
+             </button>
+          ) : (
+             <div>
+                <p>Scan this QR code with your authenticator app:</p>
+                <div style={{ margin: '16px 0', padding: '16px', background: 'white', display: 'inline-block' }}>
+                   <QRCodeSVG value={mfaSetup.qrCodeUri} size={200} />
+                </div>
+                <form className="inline-form" onSubmit={handleConfirmMfa}>
+                   <input 
+                      placeholder="6-digit code" 
+                      required 
+                      value={mfaConfirmCode} 
+                      onChange={e => setMfaConfirmCode(e.target.value)}
+                      maxLength={6} 
+                      pattern="\d{6}" 
+                   />
+                   <button type="submit" disabled={mfaLoading}>
+                      {mfaLoading ? 'Verifying...' : 'Verify & Enable'}
+                   </button>
+                </form>
+             </div>
           )}
         </section>
       </main>

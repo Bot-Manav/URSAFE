@@ -53,7 +53,7 @@ export default function Register() {
         <label>
           Role
           <select value={role} onChange={(e) => setRole(e.target.value as Role)}>
-            {ROLES.map((r) => <option key={r} value={r}>{r.replaceAll('_', ' ')}</option>)}
+            {ROLES.map((r) => <option key={r} value={r}>{r.replace(/_/g, ' ')}</option>)}
           </select>
         </label>
         <button type="submit" disabled={loading}>{loading ? 'Creating...' : 'Register'}</button>

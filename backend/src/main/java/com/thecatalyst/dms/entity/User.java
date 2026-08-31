@@ -54,4 +54,14 @@ public class User {
     @Column(nullable = false, updatable = false)
     @Builder.Default
     private Instant createdAt = Instant.now();
+
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean mfaEnabled = false;
+
+    @Column(name = "encrypted_totp_secret")
+    private String encryptedTotpSecret;
+
+    @Column(name = "totp_secret_iv")
+    private String totpSecretIv;
 }

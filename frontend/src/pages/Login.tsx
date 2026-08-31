@@ -3,10 +3,12 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 export default function Login() {
-  const { login } = useAuth()
+  const { login, verifyMfa } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [mfaCode, setMfaCode] = useState('')
+  const [isMfaStep, setIsMfaStep] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -15,11 +17,18 @@ export default function Login() {
     setError(null)
     setLoading(true)
     try {
-      await login(email, password)
-      navigate('/dashboard')
+      if (!isMfaStep) {
+        const result = await login(email, password)
+        if (result.mfaRequired) {
+          setIsMfaStep(true)
+        } else {
+          navigate('/dashboard')
+        }
+      } else {
+        await verifyMfa(mfaCode)
+        navigate('/dashboard')
+      }
     } catch (err: any) {
-      // Generic message only - backend already avoids leaking which
-      // field was wrong; the frontend must not re-introduce that leak.
       setError(err.response?.data?.message || 'Login failed')
     } finally {
       setLoading(false)
@@ -32,16 +41,27 @@ export default function Login() {
         <h1>Secure DMS</h1>
         <p className="subtitle">Sign in</p>
         {error && <div className="error-banner">{error}</div>}
-        <label>
-          Email
-          <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" />
-        </label>
-        <label>
-          Password
-          <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
-        </label>
-        <button type="submit" disabled={loading}>{loading ? 'Signing in...' : 'Sign in'}</button>
-        <p className="switch-link">No account? <Link to="/register">Register</Link></p>
+        
+        {!isMfaStep ? (
+          <>
+            <label>
+              Email
+              <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" />
+            </label>
+            <label>
+              Password
+              <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
+            </label>
+          </>
+        ) : (
+          <label>
+            MFA Code
+            <input type="text" required value={mfaCode} onChange={(e) => setMfaCode(e.target.value)} autoComplete="one-time-code" maxLength={6} pattern="\d{6}" placeholder="6-digit code" />
+          </label>
+        )}
+
+        <button type="submit" disabled={loading}>{loading ? 'Signing in...' : (isMfaStep ? 'Verify Code' : 'Sign in')}</button>
+        {!isMfaStep && <p className="switch-link">No account? <Link to="/register">Register</Link></p>}
       </form>
     </div>
   )

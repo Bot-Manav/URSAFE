@@ -65,4 +65,16 @@ public class DocumentEntity {
     @Column(nullable = false)
     @Builder.Default
     private int version = 1;
+
+    @Column(nullable = false)
+    private UUID documentGroupId;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean isDeleted = false;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private DocumentTag tag = DocumentTag.OTHER;
 }

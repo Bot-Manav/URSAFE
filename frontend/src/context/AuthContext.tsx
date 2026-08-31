@@ -18,7 +18,8 @@ interface AuthUser {
 interface AuthContextValue {
   user: AuthUser | null
   isAuthenticated: boolean
-  login: (email: string, password: string) => Promise<void>
+  login: (email: string, password: string) => Promise<{ mfaRequired: boolean }>
+  verifyMfa: (code: string) => Promise<void>
   register: (email: string, fullName: string, password: string, role: Role) => Promise<void>
   logout: () => void
 }
@@ -28,8 +29,20 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
 
-  async function login(email: string, password: string) {
+  async function login(email: string, password: string): Promise<{ mfaRequired: boolean }> {
     const { data } = await apiClient.post('/api/auth/login', { email, password })
+    if (data.mfaRequired) {
+      setToken(data.token) // pending token
+      return { mfaRequired: true }
+    } else {
+      setToken(data.token)
+      setUser({ userId: data.userId, email: data.email, fullName: data.fullName, role: data.role })
+      return { mfaRequired: false }
+    }
+  }
+
+  async function verifyMfa(code: string) {
+    const { data } = await apiClient.post('/api/auth/verify-mfa', { code })
     setToken(data.token)
     setUser({ userId: data.userId, email: data.email, fullName: data.fullName, role: data.role })
   }
@@ -46,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!getToken(), login, register, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!getToken(), login, verifyMfa, register, logout }}>
       {children}
     </AuthContext.Provider>
   )

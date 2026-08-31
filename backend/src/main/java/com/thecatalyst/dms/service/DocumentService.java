@@ -2,6 +2,8 @@ package com.thecatalyst.dms.service;
 
 import com.thecatalyst.dms.dto.DocumentResponse;
 import com.thecatalyst.dms.entity.DocumentEntity;
+import com.thecatalyst.dms.entity.DocumentTag;
+import com.thecatalyst.dms.entity.Role;
 import com.thecatalyst.dms.exception.ApiException;
 import com.thecatalyst.dms.repository.DocumentRepository;
 import com.thecatalyst.dms.security.AuthenticatedUser;
@@ -72,7 +74,7 @@ public class DocumentService {
     }
 
     @Transactional
-    public DocumentResponse upload(UUID caseId, MultipartFile file, AuthenticatedUser actor, String ip) {
+    public DocumentResponse upload(UUID caseId, MultipartFile file, UUID documentGroupId, DocumentTag tag, AuthenticatedUser actor, String ip) {
         caseService.assertAccess(caseId, actor);
         validateFile(file);
 
@@ -97,6 +99,20 @@ public class DocumentService {
 
             Files.write(target, encrypted.ciphertext(), java.nio.file.StandardOpenOption.CREATE_NEW);
 
+            int version = 1;
+            if (documentGroupId != null) {
+                Integer maxVersion = documentRepository.findMaxVersionByGroupId(documentGroupId);
+                if (maxVersion != null) {
+                    version = maxVersion + 1;
+                }
+            } else {
+                documentGroupId = UUID.randomUUID();
+            }
+
+            if (tag == null) {
+                tag = DocumentTag.OTHER;
+            }
+
             DocumentEntity doc = DocumentEntity.builder()
                     .id(documentId)
                     .caseId(caseId)
@@ -107,7 +123,9 @@ public class DocumentService {
                     .sha256Hash(hash)
                     .ivBase64(Base64.getEncoder().encodeToString(encrypted.iv()))
                     .uploadedBy(actor.id())
-                    .version(1)
+                    .version(version)
+                    .documentGroupId(documentGroupId)
+                    .tag(tag)
                     .build();
             doc = documentRepository.save(doc);
 
@@ -157,7 +175,25 @@ public class DocumentService {
 
     public List<DocumentResponse> listForCase(UUID caseId, AuthenticatedUser actor) {
         caseService.assertAccess(caseId, actor);
-        return documentRepository.findByCaseId(caseId).stream().map(this::toResponse).toList();
+        return documentRepository.findByCaseIdAndIsDeletedFalse(caseId).stream().map(this::toResponse).toList();
+    }
+
+    @Transactional
+    public void delete(UUID documentId, AuthenticatedUser actor, String ip) {
+        DocumentEntity doc = documentRepository.findById(documentId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Document not found"));
+        
+        caseService.assertAccess(doc.getCaseId(), actor);
+        
+        com.thecatalyst.dms.entity.CaseEntity caseEntity = caseService.getCase(doc.getCaseId(), actor);
+        if (!Role.ADMIN.name().equals(actor.role()) && !caseEntity.getCreatedBy().equals(actor.id())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Only admins or the case creator can delete documents");
+        }
+        
+        doc.setDeleted(true);
+        documentRepository.save(doc);
+        
+        auditService.log(actor.id(), "DOCUMENT_DELETE", doc.getCaseId(), doc.getId(), doc.getOriginalFileName(), ip);
     }
 
     private Path caseStorageDir(UUID caseId) {
@@ -200,6 +236,6 @@ public class DocumentService {
     private DocumentResponse toResponse(DocumentEntity doc) {
         return new DocumentResponse(doc.getId(), doc.getCaseId(), doc.getOriginalFileName(),
                 doc.getContentType(), doc.getFileSizeBytes(), doc.getSha256Hash(),
-                doc.getUploadedBy(), doc.getUploadedAt(), doc.getVersion());
+                doc.getUploadedBy(), doc.getUploadedAt(), doc.getVersion(), doc.getDocumentGroupId(), doc.getTag());
     }
 }

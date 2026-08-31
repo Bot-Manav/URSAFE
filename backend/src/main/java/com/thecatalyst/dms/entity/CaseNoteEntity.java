@@ -10,34 +10,27 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "case_record")
+@Table(name = "case_note")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class CaseEntity {
+public class CaseNoteEntity {
 
     @Id
     @GeneratedValue
     private UUID id;
 
-    @Column(nullable = false, unique = true)
-    private String caseNumber;
+    @Column(nullable = false)
+    private UUID caseId;
 
     @Column(nullable = false)
-    private String title;
+    private UUID authorId;
 
-    private String description;
-
-    @Column(nullable = false)
-    private UUID createdBy;
+    @Column(nullable = false, length = 2000)
+    private String body;
 
     @Column(nullable = false, updatable = false)
     @Builder.Default
     private Instant createdAt = Instant.now();
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    @Builder.Default
-    private CaseStatus status = CaseStatus.OPEN;
 }

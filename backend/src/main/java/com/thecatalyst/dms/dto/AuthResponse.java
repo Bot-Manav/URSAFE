@@ -11,5 +11,6 @@ public record AuthResponse(
         String email,
         String fullName,
         Role role,
-        long expiresInMs
+        long expiresInMs,
+        boolean mfaRequired
 ) {}

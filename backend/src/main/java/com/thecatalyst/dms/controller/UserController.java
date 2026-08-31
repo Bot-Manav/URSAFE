@@ -17,18 +17,26 @@ public class UserController {
         this.userRepository = userRepository;
     }
 
-    @GetMapping("/search")
-    public ResponseEntity<List<UserSummary>> searchUsers(@RequestParam String q) {
-        if (q == null || q.trim().isEmpty()) {
-            return ResponseEntity.ok(List.of());
+    @GetMapping
+    public ResponseEntity<List<UserSummary>> listUsers(@RequestParam(required = false) String q) {
+        if (q != null && !q.trim().isEmpty()) {
+            String query = q.trim();
+            List<UserSummary> results = userRepository.findTop10ByEmailContainingIgnoreCaseOrFullNameContainingIgnoreCase(query, query)
+                    .stream()
+                    .map(u -> new UserSummary(u.getId(), u.getFullName(), u.getEmail(), u.getRole()))
+                    .toList();
+            return ResponseEntity.ok(results);
         }
-        
-        String query = q.trim();
-        List<UserSummary> results = userRepository.findTop10ByEmailContainingIgnoreCaseOrFullNameContainingIgnoreCase(query, query)
+
+        List<UserSummary> allUsers = userRepository.findAll()
                 .stream()
                 .map(u -> new UserSummary(u.getId(), u.getFullName(), u.getEmail(), u.getRole()))
                 .toList();
+        return ResponseEntity.ok(allUsers);
+    }
 
-        return ResponseEntity.ok(results);
+    @GetMapping("/search")
+    public ResponseEntity<List<UserSummary>> searchUsers(@RequestParam String q) {
+        return listUsers(q);
     }
 }

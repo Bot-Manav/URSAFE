@@ -29,4 +29,26 @@ public class AuthController {
                                                HttpServletRequest httpRequest) {
         return ResponseEntity.ok(authService.login(request, RequestUtils.clientIp(httpRequest)));
     }
+
+    @PostMapping("/setup-mfa")
+    public ResponseEntity<com.thecatalyst.dms.dto.MfaSetupResponse> setupMfa(org.springframework.security.core.Authentication auth) {
+        java.util.UUID userId = ((com.thecatalyst.dms.security.AuthenticatedUser) auth.getPrincipal()).id();
+        return ResponseEntity.ok(authService.setupMfa(userId));
+    }
+
+    @PostMapping("/confirm-mfa")
+    public ResponseEntity<Void> confirmMfa(@Valid @RequestBody com.thecatalyst.dms.dto.MfaVerifyRequest request,
+                                           org.springframework.security.core.Authentication auth) {
+        java.util.UUID userId = ((com.thecatalyst.dms.security.AuthenticatedUser) auth.getPrincipal()).id();
+        authService.confirmMfa(userId, request);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/verify-mfa")
+    public ResponseEntity<AuthResponse> verifyMfa(@Valid @RequestBody com.thecatalyst.dms.dto.MfaVerifyRequest request,
+                                                  org.springframework.security.core.Authentication auth,
+                                                  HttpServletRequest httpRequest) {
+        java.util.UUID userId = ((com.thecatalyst.dms.security.AuthenticatedUser) auth.getPrincipal()).id();
+        return ResponseEntity.ok(authService.verifyMfaLogin(userId, request, RequestUtils.clientIp(httpRequest)));
+    }
 }

@@ -50,7 +50,15 @@ public class CaseController {
                                              @Valid @RequestBody GrantAccessRequest request,
                                              @AuthenticationPrincipal AuthenticatedUser actor,
                                              HttpServletRequest httpRequest) {
-        caseService.grantAccess(caseId, request.userId(), actor, RequestUtils.clientIp(httpRequest));
+        caseService.grantAccess(caseId, request, actor, RequestUtils.clientIp(httpRequest));
         return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/{caseId}/status")
+    public ResponseEntity<CaseEntity> updateCaseStatus(@PathVariable UUID caseId,
+                                                        @Valid @RequestBody com.thecatalyst.dms.dto.CaseStatusUpdateRequest request,
+                                                        @AuthenticationPrincipal AuthenticatedUser actor,
+                                                        HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(caseService.updateCaseStatus(caseId, request.status(), actor, RequestUtils.clientIp(httpRequest)));
     }
 }

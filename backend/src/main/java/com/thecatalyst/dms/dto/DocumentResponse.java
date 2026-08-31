@@ -1,6 +1,7 @@
 package com.thecatalyst.dms.dto;
 
 import java.time.Instant;
+import com.thecatalyst.dms.entity.DocumentTag;
 import java.util.UUID;
 
 // storedFileName / ivBase64 are intentionally excluded from this response -
@@ -14,5 +15,7 @@ public record DocumentResponse(
         String sha256Hash,
         UUID uploadedBy,
         Instant uploadedAt,
-        int version
+        int version,
+        UUID documentGroupId,
+        DocumentTag tag
 ) {}

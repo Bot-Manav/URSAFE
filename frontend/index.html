@@ -7,7 +7,7 @@
          point is server response headers on the API. No inline scripts,
          no remote script sources beyond self. -->
     <meta http-equiv="Content-Security-Policy"
-          content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' http://localhost:8081;" />
+          content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' http://localhost:8080 http://localhost:8081 http://127.0.0.1:8080 http://127.0.0.1:8081 ws://localhost:* ws://127.0.0.1:*;" />
     <title>Secure DMS - The Catalyst</title>
   </head>
   <body>

@@ -31,8 +31,12 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException ex) {
+        String msg = ex.getBindingResult().getFieldErrors().stream()
+                .map(err -> err.getDefaultMessage())
+                .reduce((a, b) -> a + ", " + b)
+                .orElse("Invalid request data");
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(new ErrorResponse("Invalid request data", HttpStatus.BAD_REQUEST.value()));
+                .body(new ErrorResponse(msg, HttpStatus.BAD_REQUEST.value()));
     }
 
     @ExceptionHandler({AccessDeniedException.class, BadCredentialsException.class})

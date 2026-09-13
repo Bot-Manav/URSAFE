@@ -36,6 +36,10 @@ app:
   security:
     max-login-attempts: 5
     lockout-duration-minutes: 15
+  admin:
+    email: ${ADMIN_EMAIL:}
+    password: ${ADMIN_PASSWORD:}
+    fullname: ${ADMIN_FULLNAME:System Administrator}
 
 logging:
   level:

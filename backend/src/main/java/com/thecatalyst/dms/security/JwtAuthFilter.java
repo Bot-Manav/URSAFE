@@ -12,6 +12,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import com.thecatalyst.dms.service.SessionService;
 
 import java.io.IOException;
 import java.util.List;
@@ -27,9 +28,11 @@ import java.util.UUID;
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
+    private final SessionService sessionService;
 
-    public JwtAuthFilter(JwtUtil jwtUtil) {
+    public JwtAuthFilter(JwtUtil jwtUtil, SessionService sessionService) {
         this.jwtUtil = jwtUtil;
+        this.sessionService = sessionService;
     }
 
     @Override
@@ -45,8 +48,18 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 UUID userId = UUID.fromString(claims.getSubject());
                 String email = claims.get("email", String.class);
                 String role = claims.get("role", String.class);
+                String jti = claims.getId();
 
-                AuthenticatedUser principal = new AuthenticatedUser(userId, email, role);
+                if (jti != null) {
+                    if (sessionService.isSessionRevoked(jti)) {
+                        SecurityContextHolder.clearContext();
+                        filterChain.doFilter(request, response);
+                        return;
+                    }
+                    sessionService.updateLastSeen(jti);
+                }
+
+                AuthenticatedUser principal = new AuthenticatedUser(userId, email, role, jti);
 
                 var authToken = new UsernamePasswordAuthenticationToken(
                         principal, null, List.of(new SimpleGrantedAuthority("ROLE_" + role)));

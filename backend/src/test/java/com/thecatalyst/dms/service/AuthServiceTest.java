@@ -68,7 +68,7 @@ public class AuthServiceTest {
                 .email("test@example.com")
                 .fullName("Test User")
                 .passwordHash("hashedpassword")
-                .role(Role.USER)
+                .role(Role.LAW_ENFORCEMENT)
                 .enabled(false)
                 .build();
     }

@@ -1,12 +1,16 @@
 package com.thecatalyst.dms.service;
 
 import com.thecatalyst.dms.dto.AuthResponse;
+import com.thecatalyst.dms.dto.ForgotPasswordRequest;
 import com.thecatalyst.dms.dto.LoginRequest;
 import com.thecatalyst.dms.dto.RegisterRequest;
 import com.thecatalyst.dms.dto.RegisterResponse;
+import com.thecatalyst.dms.dto.ResetPasswordRequest;
+import com.thecatalyst.dms.entity.PasswordResetToken;
 import com.thecatalyst.dms.entity.Role;
 import com.thecatalyst.dms.entity.User;
 import com.thecatalyst.dms.exception.ApiException;
+import com.thecatalyst.dms.repository.PasswordResetTokenRepository;
 import com.thecatalyst.dms.repository.UserRepository;
 import com.thecatalyst.dms.security.JwtUtil;
 import com.thecatalyst.dms.security.LoginAttemptService;
@@ -14,6 +18,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Optional;
+import java.util.UUID;
 
 /**
  * SECURITY NOTE (OWASP A07 / A01):
@@ -38,19 +47,31 @@ public class AuthService {
     private final LoginAttemptService loginAttemptService;
     private final AuditService auditService;
     private final EncryptionService encryptionService;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final HashingService hashingService;
+    private final EmailService emailService;
+    private final SessionService sessionService;
 
     public AuthService(UserRepository userRepository,
                         PasswordEncoder passwordEncoder,
                         JwtUtil jwtUtil,
                         LoginAttemptService loginAttemptService,
                         AuditService auditService,
-                        EncryptionService encryptionService) {
+                        EncryptionService encryptionService,
+                        PasswordResetTokenRepository passwordResetTokenRepository,
+                        HashingService hashingService,
+                        EmailService emailService,
+                        SessionService sessionService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
         this.loginAttemptService = loginAttemptService;
         this.auditService = auditService;
         this.encryptionService = encryptionService;
+        this.passwordResetTokenRepository = passwordResetTokenRepository;
+        this.hashingService = hashingService;
+        this.emailService = emailService;
+        this.sessionService = sessionService;
     }
 
     @Transactional
@@ -80,7 +101,7 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponse login(LoginRequest req, String ipAddress) {
+    public AuthResponse login(LoginRequest req, String ipAddress, String userAgent) {
         User user = userRepository.findByEmail(req.email().toLowerCase().trim())
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, GENERIC_LOGIN_ERROR));
 
@@ -99,14 +120,17 @@ public class AuthService {
 
         if (user.isMfaEnabled()) {
             auditService.log(user.getId(), "LOGIN_MFA_PENDING", null, null, null, ipAddress);
-            String mfaToken = jwtUtil.generateToken(user.getId(), user.getEmail(), Role.MFA_PENDING.name());
+            String mfaJti = UUID.randomUUID().toString();
+            String mfaToken = jwtUtil.generateToken(user.getId(), user.getEmail(), Role.MFA_PENDING.name(), mfaJti);
             return new AuthResponse(mfaToken, user.getId(), user.getEmail(), user.getFullName(),
                     user.getRole(), jwtUtil.getExpirationMs(), true);
         }
 
         auditService.log(user.getId(), "LOGIN_SUCCESS", null, null, null, ipAddress);
 
-        String token = jwtUtil.generateToken(user.getId(), user.getEmail(), user.getRole().name());
+        String jti = UUID.randomUUID().toString();
+        String token = jwtUtil.generateToken(user.getId(), user.getEmail(), user.getRole().name(), jti);
+        sessionService.createSession(user.getId(), jti, userAgent, ipAddress);
         return new AuthResponse(token, user.getId(), user.getEmail(), user.getFullName(),
                 user.getRole(), jwtUtil.getExpirationMs(), false);
     }
@@ -168,7 +192,7 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponse verifyMfaLogin(java.util.UUID userId, com.thecatalyst.dms.dto.MfaVerifyRequest req, String ipAddress) {
+    public AuthResponse verifyMfaLogin(java.util.UUID userId, com.thecatalyst.dms.dto.MfaVerifyRequest req, String ipAddress, String userAgent) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "User not found"));
 
@@ -187,12 +211,63 @@ public class AuthService {
 
         if (verifier.isValidCode(secret, req.code())) {
             auditService.log(user.getId(), "LOGIN_SUCCESS", null, null, null, ipAddress);
-            String token = jwtUtil.generateToken(user.getId(), user.getEmail(), user.getRole().name());
+            String jti = UUID.randomUUID().toString();
+            String token = jwtUtil.generateToken(user.getId(), user.getEmail(), user.getRole().name(), jti);
+            sessionService.createSession(user.getId(), jti, userAgent, ipAddress);
             return new AuthResponse(token, user.getId(), user.getEmail(), user.getFullName(),
                     user.getRole(), jwtUtil.getExpirationMs(), false);
         } else {
             auditService.log(user.getId(), "LOGIN_MFA_FAIL", null, null, null, ipAddress);
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Invalid MFA code");
         }
+    }
+
+    @Transactional
+    public void requestPasswordReset(ForgotPasswordRequest req) {
+        Optional<User> userOpt = userRepository.findByEmail(req.email().toLowerCase().trim());
+        if (userOpt.isEmpty()) {
+            return; // A07: Silent return to prevent user enumeration
+        }
+        User user = userOpt.get();
+
+        String rawToken = UUID.randomUUID().toString();
+        String tokenHash = hashingService.sha256(rawToken.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+        PasswordResetToken resetToken = PasswordResetToken.builder()
+                .userId(user.getId())
+                .tokenHash(tokenHash)
+                .expiresAt(Instant.now().plus(15, ChronoUnit.MINUTES))
+                .used(false)
+                .build();
+        
+        passwordResetTokenRepository.save(resetToken);
+        auditService.log(user.getId(), "PASSWORD_RESET_REQUESTED", null, null, null, "internal");
+
+        String resetLink = "http://localhost:5173/reset-password?token=" + rawToken;
+        emailService.sendPasswordResetEmail(user.getEmail(), resetLink);
+    }
+
+    @Transactional
+    public void resetPassword(ResetPasswordRequest req) {
+        String tokenHash = hashingService.sha256(req.token().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+        PasswordResetToken resetToken = passwordResetTokenRepository.findByTokenHash(tokenHash)
+                .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "Invalid or expired token"));
+
+        if (resetToken.isUsed() || Instant.now().isAfter(resetToken.getExpiresAt())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid or expired token");
+        }
+
+        User user = userRepository.findById(resetToken.getUserId())
+                .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "User not found"));
+
+        user.setPasswordHash(passwordEncoder.encode(req.newPassword()));
+        userRepository.save(user);
+
+        resetToken.setUsed(true);
+        passwordResetTokenRepository.save(resetToken);
+
+        passwordResetTokenRepository.invalidateAllTokensForUser(user.getId());
+        auditService.log(user.getId(), "PASSWORD_RESET_COMPLETED", null, null, null, "internal");
     }
 }

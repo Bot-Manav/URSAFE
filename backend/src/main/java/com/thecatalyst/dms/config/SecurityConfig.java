@@ -67,6 +67,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(new AntPathRequestMatcher("/api/auth/register", "POST")).permitAll()
                 .requestMatchers(new AntPathRequestMatcher("/api/auth/login", "POST")).permitAll()
+                .requestMatchers(new AntPathRequestMatcher("/api/auth/forgot-password", "POST")).permitAll()
+                .requestMatchers(new AntPathRequestMatcher("/api/auth/reset-password", "POST")).permitAll()
                 .requestMatchers(new AntPathRequestMatcher("/actuator/health", "GET")).permitAll()
                 .anyRequest().authenticated() // default-deny for everything else
             )

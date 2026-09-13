@@ -120,6 +120,11 @@ export default function Login() {
                     }}
                   />
                 </div>
+                <div style={{ textAlign: 'right', marginTop: '0.5rem' }}>
+                  <Link to="/forgot-password" style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                    Forgot Password?
+                  </Link>
+                </div>
               </div>
             </>
           ) : (

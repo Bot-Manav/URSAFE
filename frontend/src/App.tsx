@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard'
 import CaseDetail from './pages/CaseDetail'
 import AuditLogs from './pages/AuditLogs'
 import UsersDirectory from './pages/UsersDirectory'
+import PendingUsers from './pages/PendingUsers'
 import SecuritySettings from './pages/SecuritySettings'
 
 export default function App() {
@@ -31,6 +32,7 @@ export default function App() {
               <Route path="/cases/:caseId" element={<CaseDetail />} />
               <Route path="/audit" element={<AuditLogs />} />
               <Route path="/users" element={<UsersDirectory />} />
+              <Route path="/admin/pending" element={<PendingUsers />} />
               <Route path="/security" element={<SecuritySettings />} />
             </Route>
 

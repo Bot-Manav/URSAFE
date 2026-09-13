@@ -20,7 +20,7 @@ interface AuthContextValue {
   isAuthenticated: boolean
   login: (email: string, password: string) => Promise<{ mfaRequired: boolean }>
   verifyMfa: (code: string) => Promise<void>
-  register: (email: string, fullName: string, password: string, role: Role) => Promise<void>
+  register: (email: string, fullName: string, password: string, role: Role) => Promise<{message: string}>
   logout: () => void
 }
 
@@ -49,8 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function register(email: string, fullName: string, password: string, role: Role) {
     const { data } = await apiClient.post('/api/auth/register', { email, fullName, password, role })
-    setToken(data.token)
-    setUser({ userId: data.userId, email: data.email, fullName: data.fullName, role: data.role })
+    return data
   }
 
   function logout() {

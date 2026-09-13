@@ -87,6 +87,17 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             <span>Personnel Directory</span>
           </NavLink>
 
+          {user?.role === 'ADMIN' && (
+            <NavLink
+              to="/admin/pending"
+              onClick={onClose}
+              className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+            >
+              <Users size={18} />
+              <span>Pending Approvals</span>
+            </NavLink>
+          )}
+
           <NavLink
             to="/security"
             onClick={onClose}

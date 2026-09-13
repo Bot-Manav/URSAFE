@@ -35,6 +35,7 @@ export default function Register() {
   const [password, setPassword] = useState('')
   const [role, setRole] = useState<Role>('INVESTIGATION_OFFICER')
   const [error, setError] = useState<string | null>(null)
+  const [successMsg, setSuccessMsg] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   async function handleSubmit(e: FormEvent) {
@@ -42,8 +43,8 @@ export default function Register() {
     setError(null)
     setLoading(true)
     try {
-      await register(email, fullName, password, role)
-      navigate('/dashboard')
+      const res = await register(email, fullName, password, role)
+      setSuccessMsg(res.message || 'Registration successful. Pending approval.')
     } catch (err: any) {
       setError(err.response?.data?.message || 'Registration failed. Please try again.')
     } finally {
@@ -73,146 +74,159 @@ export default function Register() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label className="form-label" htmlFor="fullName">
-              Full Official Name
-            </label>
-            <div style={{ position: 'relative' }}>
-              <input
-                id="fullName"
-                type="text"
-                required
-                className="form-input"
-                style={{ paddingLeft: '2.5rem' }}
-                placeholder="e.g. Insp. Rajesh Sharma"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-              />
-              <User
-                size={18}
-                style={{
-                  position: 'absolute',
-                  left: '0.8rem',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  color: 'var(--text-muted)',
-                }}
-              />
+        {successMsg ? (
+          <div style={{ textAlign: 'center', padding: '2rem 0' }}>
+            <div style={{ color: 'var(--success)', marginBottom: '1rem' }}>
+              <ShieldCheck size={48} style={{ margin: '0 auto' }} />
             </div>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label" htmlFor="email">
-              Official Email Address
-            </label>
-            <div style={{ position: 'relative' }}>
-              <input
-                id="email"
-                type="email"
-                required
-                className="form-input"
-                style={{ paddingLeft: '2.5rem' }}
-                placeholder="officer@police.gov.in"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="username"
-              />
-              <Mail
-                size={18}
-                style={{
-                  position: 'absolute',
-                  left: '0.8rem',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  color: 'var(--text-muted)',
-                }}
-              />
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label" htmlFor="password">
-              Password
-            </label>
-            <div style={{ position: 'relative' }}>
-              <input
-                id="password"
-                type="password"
-                required
-                minLength={12}
-                className="form-input"
-                style={{ paddingLeft: '2.5rem' }}
-                placeholder="Minimum 12 characters"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="new-password"
-              />
-              <Lock
-                size={18}
-                style={{
-                  position: 'absolute',
-                  left: '0.8rem',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  color: 'var(--text-muted)',
-                }}
-              />
-            </div>
-            <span className="form-hint">Must include uppercase, lowercase, digit, and special character.</span>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label" htmlFor="role">
-              Departmental Role
-            </label>
-            <div style={{ position: 'relative' }}>
-              <select
-                id="role"
-                value={role}
-                onChange={(e) => setRole(e.target.value as Role)}
-                className="form-select"
-                style={{ paddingLeft: '2.5rem' }}
-              >
-                {ROLES.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.label}
-                  </option>
-                ))}
-              </select>
-              <Briefcase
-                size={18}
-                style={{
-                  position: 'absolute',
-                  left: '0.8rem',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  color: 'var(--text-muted)',
-                }}
-              />
-            </div>
-            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
-              {ROLES.find((r) => r.id === role)?.description}
-            </p>
-          </div>
-
-          <button
-            type="submit"
-            className="btn btn-primary"
-            disabled={loading}
-            style={{ width: '100%', padding: '0.75rem', marginTop: '1rem' }}
-          >
-            <span>{loading ? 'Creating Account...' : 'Complete Registration'}</span>
-            {!loading && <ArrowRight size={16} />}
-          </button>
-
-          <div style={{ textAlign: 'center', marginTop: '1.25rem', fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
-            Already registered?{' '}
-            <Link to="/login" style={{ fontWeight: 600 }}>
-              Sign in
+            <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>Registration Submitted</h2>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>{successMsg}</p>
+            <Link to="/login" className="btn btn-primary" style={{ display: 'inline-block', padding: '0.75rem 2rem' }}>
+              Return to Login
             </Link>
           </div>
-        </form>
+        ) : (
+          <form onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label className="form-label" htmlFor="fullName">
+                Full Official Name
+              </label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  id="fullName"
+                  type="text"
+                  required
+                  className="form-input"
+                  style={{ paddingLeft: '2.5rem' }}
+                  placeholder="e.g. Insp. Rajesh Sharma"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                />
+                <User
+                  size={18}
+                  style={{
+                    position: 'absolute',
+                    left: '0.8rem',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: 'var(--text-muted)',
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label" htmlFor="email">
+                Official Email Address
+              </label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  id="email"
+                  type="email"
+                  required
+                  className="form-input"
+                  style={{ paddingLeft: '2.5rem' }}
+                  placeholder="officer@police.gov.in"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="username"
+                />
+                <Mail
+                  size={18}
+                  style={{
+                    position: 'absolute',
+                    left: '0.8rem',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: 'var(--text-muted)',
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label" htmlFor="password">
+                Password
+              </label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  id="password"
+                  type="password"
+                  required
+                  minLength={12}
+                  className="form-input"
+                  style={{ paddingLeft: '2.5rem' }}
+                  placeholder="Minimum 12 characters"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="new-password"
+                />
+                <Lock
+                  size={18}
+                  style={{
+                    position: 'absolute',
+                    left: '0.8rem',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: 'var(--text-muted)',
+                  }}
+                />
+              </div>
+              <span className="form-hint">Must include uppercase, lowercase, digit, and special character.</span>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label" htmlFor="role">
+                Departmental Role
+              </label>
+              <div style={{ position: 'relative' }}>
+                <select
+                  id="role"
+                  value={role}
+                  onChange={(e) => setRole(e.target.value as Role)}
+                  className="form-select"
+                  style={{ paddingLeft: '2.5rem' }}
+                >
+                  {ROLES.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.label}
+                    </option>
+                  ))}
+                </select>
+                <Briefcase
+                  size={18}
+                  style={{
+                    position: 'absolute',
+                    left: '0.8rem',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: 'var(--text-muted)',
+                  }}
+                />
+              </div>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
+                {ROLES.find((r) => r.id === role)?.description}
+              </p>
+            </div>
+
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={loading}
+              style={{ width: '100%', padding: '0.75rem', marginTop: '1rem' }}
+            >
+              <span>{loading ? 'Creating Account...' : 'Complete Registration'}</span>
+              {!loading && <ArrowRight size={16} />}
+            </button>
+
+            <div style={{ textAlign: 'center', marginTop: '1.25rem', fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
+              Already registered?{' '}
+              <Link to="/login" style={{ fontWeight: 600 }}>
+                Sign in
+              </Link>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   )

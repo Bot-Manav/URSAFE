@@ -3,6 +3,7 @@ package com.thecatalyst.dms.service;
 import com.thecatalyst.dms.dto.AuthResponse;
 import com.thecatalyst.dms.dto.LoginRequest;
 import com.thecatalyst.dms.dto.RegisterRequest;
+import com.thecatalyst.dms.dto.RegisterResponse;
 import com.thecatalyst.dms.entity.Role;
 import com.thecatalyst.dms.entity.User;
 import com.thecatalyst.dms.exception.ApiException;
@@ -53,7 +54,7 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponse register(RegisterRequest req) {
+    public RegisterResponse register(RegisterRequest req) {
         if (userRepository.existsByEmail(req.email())) {
             // Generic message - do not reveal that this email is already taken.
             throw new ApiException(HttpStatus.BAD_REQUEST, "Unable to register with the provided details");
@@ -69,14 +70,13 @@ public class AuthService {
                 .fullName(req.fullName().trim())
                 .passwordHash(passwordEncoder.encode(req.password()))
                 .role(requestedRole)
-                .enabled(true)
+                .enabled(false)
                 .build();
 
         user = userRepository.save(user);
+        auditService.log(user.getId(), "USER_REGISTERED", null, null, "pending approval", "internal");
 
-        String token = jwtUtil.generateToken(user.getId(), user.getEmail(), user.getRole().name());
-        return new AuthResponse(token, user.getId(), user.getEmail(), user.getFullName(),
-                user.getRole(), jwtUtil.getExpirationMs(), false);
+        return new RegisterResponse("Registration successful. Your account is pending administrator approval.");
     }
 
     @Transactional

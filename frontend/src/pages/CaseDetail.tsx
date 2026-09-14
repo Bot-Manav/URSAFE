@@ -133,6 +133,24 @@ export default function CaseDetail() {
     return () => clearTimeout(timer)
   }, [userSearch])
 
+  // Debounced Document Search (Server-side)
+  useEffect(() => {
+    if (!caseId) return
+    const timer = setTimeout(async () => {
+      try {
+        const params = new URLSearchParams()
+        if (docSearch) params.append('q', docSearch)
+        if (tagFilter !== 'ALL') params.append('tag', tagFilter)
+        
+        const { data } = await apiClient.get<DocumentSummary[]>(`/api/cases/${caseId}/search?${params.toString()}`)
+        setDocuments(data)
+      } catch (e) {
+        console.error("Failed to search documents", e)
+      }
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [docSearch, tagFilter, caseId])
+
   // Get Latest Documents grouped by DocumentGroupID
   const latestDocuments = useMemo(() => {
     const groups = new Map<string, DocumentSummary>()
@@ -147,14 +165,8 @@ export default function CaseDetail() {
     )
   }, [documents])
 
-  // Filtered documents for UI
-  const filteredDocuments = useMemo(() => {
-    return latestDocuments.filter((doc) => {
-      const matchesSearch = doc.originalFileName.toLowerCase().includes(docSearch.toLowerCase())
-      const matchesTag = tagFilter === 'ALL' || doc.tag === tagFilter
-      return matchesSearch && matchesTag
-    })
-  }, [latestDocuments, docSearch, tagFilter])
+  // Filtered documents for UI (now exactly equal to latestDocuments since filtering is server-side)
+  const filteredDocuments = latestDocuments
 
   async function handleDownload(doc: DocumentSummary) {
     try {

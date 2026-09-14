@@ -14,6 +14,8 @@ import UsersDirectory from './pages/UsersDirectory'
 import PendingUsers from './pages/PendingUsers'
 import SecuritySettings from './pages/SecuritySettings'
 
+import AdminSearch from './pages/AdminSearch'
+
 export default function App() {
   return (
     <ThemeProvider>
@@ -37,6 +39,7 @@ export default function App() {
               <Route path="/audit" element={<AuditLogs />} />
               <Route path="/users" element={<UsersDirectory />} />
               <Route path="/admin/pending" element={<PendingUsers />} />
+              <Route path="/admin/search" element={<AdminSearch />} />
               <Route path="/security" element={<SecuritySettings />} />
             </Route>
 

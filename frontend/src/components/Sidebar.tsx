@@ -6,7 +6,8 @@ import {
   Users,
   KeyRound,
   LogOut,
-  X
+  X,
+  Search
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { ThemeToggle } from './ThemeToggle'
@@ -88,14 +89,25 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           </NavLink>
 
           {user?.role === 'ADMIN' && (
-            <NavLink
-              to="/admin/pending"
-              onClick={onClose}
-              className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-            >
-              <Users size={18} />
-              <span>Pending Approvals</span>
-            </NavLink>
+            <>
+              <NavLink
+                to="/admin/pending"
+                onClick={onClose}
+                className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+              >
+                <Users size={18} />
+                <span>Pending Approvals</span>
+              </NavLink>
+              
+              <NavLink
+                to="/admin/search"
+                onClick={onClose}
+                className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+              >
+                <Search size={18} />
+                <span>Global Search</span>
+              </NavLink>
+            </>
           )}
 
           <NavLink

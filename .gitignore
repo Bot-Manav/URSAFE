@@ -11,6 +11,7 @@ storage/**
 backend/target/
 backend/.mvn/
 backend/*.log
+backend/tessdata/
 
 # Frontend
 frontend/node_modules/

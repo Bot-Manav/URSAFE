@@ -5,10 +5,12 @@ import { TagBadge } from './TagBadge'
 
 export interface DocumentSummary {
   id: string
+  caseId: string
   originalFileName: string
   contentType: string
   fileSizeBytes: number
   sha256Hash: string
+  uploadedBy: string
   uploadedAt: string
   version: number
   documentGroupId: string

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { X, Download, Copy, Check, ShieldCheck, FileText, AlertTriangle, Eye } from 'lucide-react'
 import { apiClient } from '../api/client'
 import { TagBadge } from './TagBadge'
+import { SignatureResponse, signDocument, getSignatures } from '../api/signature'
 
 export interface DocumentSummary {
   id: string
@@ -29,6 +30,8 @@ export function DocumentPreviewModal({ document: doc, onClose, onDownload }: Doc
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [copiedHash, setCopiedHash] = useState(false)
+  const [signatures, setSignatures] = useState<SignatureResponse[]>([])
+  const [signing, setSigning] = useState(false)
 
   const isImage = doc?.contentType?.startsWith('image/') || /\.(png|jpe?g)$/i.test(doc?.originalFileName || '')
   const isPdf = doc?.contentType === 'application/pdf' || /\.pdf$/i.test(doc?.originalFileName || '')
@@ -38,6 +41,7 @@ export function DocumentPreviewModal({ document: doc, onClose, onDownload }: Doc
       setBlobUrl(null)
       setTextContent(null)
       setError(null)
+      setSignatures([])
       return
     }
 
@@ -49,6 +53,11 @@ export function DocumentPreviewModal({ document: doc, onClose, onDownload }: Doc
     let active = true
     setLoading(true)
     setError(null)
+    setSignatures([])
+
+    getSignatures(doc.id).then((sigs) => {
+      if (active) setSignatures(sigs)
+    }).catch(console.error)
 
     apiClient
       .get(`/api/documents/${doc.id}/preview`, { responseType: 'blob' })
@@ -87,6 +96,20 @@ export function DocumentPreviewModal({ document: doc, onClose, onDownload }: Doc
     navigator.clipboard.writeText(doc.sha256Hash)
     setCopiedHash(true)
     setTimeout(() => setCopiedHash(false), 2000)
+  }
+
+  const handleSign = async () => {
+    if (!doc) return
+    setSigning(true)
+    try {
+      const sig = await signDocument(doc.id)
+      setSignatures([sig, ...signatures])
+    } catch (e: any) {
+      console.error('Failed to sign document', e)
+      setError(e.response?.data?.message || 'Failed to cryptographically sign document.')
+    } finally {
+      setSigning(false)
+    }
   }
 
   return (
@@ -215,6 +238,54 @@ export function DocumentPreviewModal({ document: doc, onClose, onDownload }: Doc
               <span>Uploaded: {new Date(doc.uploadedAt).toLocaleString()}</span>
               <span>Type: {doc.contentType || 'Binary'}</span>
             </div>
+          </div>
+
+          {/* Digital Signatures Section */}
+          <div
+            style={{
+              marginTop: '1rem',
+              padding: '0.85rem 1rem',
+              backgroundColor: 'var(--bg-surface-elevated)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 'var(--radius-md)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+              <h4 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-primary)' }}>Cryptographic Signatures</h4>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={handleSign}
+                disabled={signing}
+              >
+                {signing ? 'Signing...' : 'Sign Document'}
+              </button>
+            </div>
+            
+            {signatures.length === 0 ? (
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>No digital signatures yet.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {signatures.map(sig => (
+                  <div key={sig.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.8rem', padding: '0.5rem', backgroundColor: 'var(--bg-app)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                    <div>
+                      <strong>{sig.signedByUserFullName}</strong> ({sig.signedByUserEmail})
+                      <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '0.2rem' }}>
+                        {new Date(sig.signedAt).toLocaleString()} • {sig.algorithm}
+                      </div>
+                    </div>
+                    {sig.isValid ? (
+                      <span className="badge badge-success" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <ShieldCheck size={12} /> Valid
+                      </span>
+                    ) : (
+                      <span className="badge badge-danger" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <AlertTriangle size={12} /> Tampered
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

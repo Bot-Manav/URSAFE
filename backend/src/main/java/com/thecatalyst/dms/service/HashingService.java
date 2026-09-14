@@ -11,7 +11,7 @@ public class HashingService {
 
     private final byte[] hmacKey;
 
-    public HashingService(@org.springframework.beans.factory.annotation.Value("${app.encryption.aes-key}") String aesKeyBase64) {
+    public HashingService(@org.springframework.beans.factory.annotation.Value("${app.encryption.key}") String aesKeyBase64) {
         this.hmacKey = java.util.Base64.getDecoder().decode(aesKeyBase64);
     }
 

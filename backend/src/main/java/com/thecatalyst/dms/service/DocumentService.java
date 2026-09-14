@@ -52,6 +52,7 @@ public class DocumentService {
     private final EncryptionService encryptionService;
     private final CaseService caseService;
     private final AuditService auditService;
+    private final OcrService ocrService;
     private final Path storageBasePath;
 
     public DocumentService(DocumentRepository documentRepository,
@@ -59,12 +60,14 @@ public class DocumentService {
                             EncryptionService encryptionService,
                             CaseService caseService,
                             AuditService auditService,
+                            OcrService ocrService,
                             @Value("${app.storage.base-path}") String basePath) {
         this.documentRepository = documentRepository;
         this.hashingService = hashingService;
         this.encryptionService = encryptionService;
         this.caseService = caseService;
         this.auditService = auditService;
+        this.ocrService = ocrService;
         this.storageBasePath = Path.of(basePath).normalize();
         try {
             Files.createDirectories(storageBasePath);
@@ -130,6 +133,10 @@ public class DocumentService {
             doc = documentRepository.save(doc);
 
             auditService.log(actor.id(), "UPLOAD", caseId, doc.getId(), doc.getOriginalFileName(), ip);
+            
+            String ext = extensionOf(file.getOriginalFilename());
+            ocrService.processAsync(doc.getId(), plaintext, ext);
+            
             return toResponse(doc);
         } catch (IOException e) {
             throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to store document");

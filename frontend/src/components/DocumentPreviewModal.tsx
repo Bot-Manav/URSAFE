@@ -1,8 +1,23 @@
 import { useState, useEffect } from 'react'
-import { X, Download, Copy, Check, ShieldCheck, FileText, AlertTriangle, Eye } from 'lucide-react'
+import { X, Download, Copy, Check, ShieldCheck, FileText, AlertTriangle, Eye, MessageSquare, Send, Brain } from 'lucide-react'
 import { apiClient } from '../api/client'
 import { TagBadge } from './TagBadge'
 import { SignatureResponse, signDocument, getSignatures } from '../api/signature'
+
+interface CommentResponse {
+  id: string;
+  documentId: string;
+  authorId: string;
+  authorName: string;
+  body: string;
+  createdAt: string;
+}
+
+interface AiInsightResponse {
+  documentId: string;
+  summary: string;
+  extractedEntities: Record<string, string[]>;
+}
 
 export interface DocumentSummary {
   id: string
@@ -16,6 +31,10 @@ export interface DocumentSummary {
   version: number
   documentGroupId: string
   tag: string
+  status: string
+  signedByNames?: string[]
+  retentionDate?: string
+  isArchived: boolean
 }
 
 interface DocumentPreviewModalProps {
@@ -32,6 +51,10 @@ export function DocumentPreviewModal({ document: doc, onClose, onDownload }: Doc
   const [copiedHash, setCopiedHash] = useState(false)
   const [signatures, setSignatures] = useState<SignatureResponse[]>([])
   const [signing, setSigning] = useState(false)
+  const [comments, setComments] = useState<CommentResponse[]>([])
+  const [newComment, setNewComment] = useState('')
+  const [postingComment, setPostingComment] = useState(false)
+  const [insights, setInsights] = useState<AiInsightResponse | null>(null)
 
   const isImage = doc?.contentType?.startsWith('image/') || /\.(png|jpe?g)$/i.test(doc?.originalFileName || '')
   const isPdf = doc?.contentType === 'application/pdf' || /\.pdf$/i.test(doc?.originalFileName || '')
@@ -42,6 +65,8 @@ export function DocumentPreviewModal({ document: doc, onClose, onDownload }: Doc
       setTextContent(null)
       setError(null)
       setSignatures([])
+      setComments([])
+      setInsights(null)
       return
     }
 
@@ -58,6 +83,18 @@ export function DocumentPreviewModal({ document: doc, onClose, onDownload }: Doc
     getSignatures(doc.id).then((sigs) => {
       if (active) setSignatures(sigs)
     }).catch(console.error)
+
+    apiClient.get<CommentResponse[]>(`/api/documents/${doc.id}/comments`)
+      .then(res => {
+        if (active) setComments(res.data)
+      }).catch(console.error)
+
+    apiClient.get<AiInsightResponse>(`/api/documents/${doc.id}/insights`)
+      .then(res => {
+        if (active && res.data && res.data.summary) {
+          setInsights(res.data)
+        }
+      }).catch(console.error)
 
     apiClient
       .get(`/api/documents/${doc.id}/preview`, { responseType: 'blob' })
@@ -109,6 +146,22 @@ export function DocumentPreviewModal({ document: doc, onClose, onDownload }: Doc
       setError(e.response?.data?.message || 'Failed to cryptographically sign document.')
     } finally {
       setSigning(false)
+    }
+  }
+
+  const handlePostComment = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newComment.trim() || !doc) return
+    setPostingComment(true)
+    try {
+      const res = await apiClient.post<CommentResponse>(`/api/documents/${doc.id}/comments`, { body: newComment.trim() })
+      setComments([...comments, res.data])
+      setNewComment('')
+    } catch (e: any) {
+      console.error('Failed to post comment', e)
+      alert(e.response?.data?.message || 'Failed to post comment')
+    } finally {
+      setPostingComment(false)
     }
   }
 
@@ -268,7 +321,7 @@ export function DocumentPreviewModal({ document: doc, onClose, onDownload }: Doc
                 {signatures.map(sig => (
                   <div key={sig.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.8rem', padding: '0.5rem', backgroundColor: 'var(--bg-app)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
                     <div>
-                      <strong>{sig.signedByUserFullName}</strong> ({sig.signedByUserEmail})
+                      <strong>{sig.signedByUserFullName}</strong> ({sig.signedByUserRole})
                       <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '0.2rem' }}>
                         {new Date(sig.signedAt).toLocaleString()} • {sig.algorithm}
                       </div>
@@ -287,6 +340,100 @@ export function DocumentPreviewModal({ document: doc, onClose, onDownload }: Doc
               </div>
             )}
           </div>
+
+          {/* Comments Section */}
+          <div
+            style={{
+              marginTop: '1rem',
+              padding: '0.85rem 1rem',
+              backgroundColor: 'var(--bg-surface-elevated)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 'var(--radius-md)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+              <MessageSquare size={16} style={{ color: 'var(--primary)' }} />
+              <h4 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-primary)' }}>Comments</h4>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '200px', overflowY: 'auto', marginBottom: '1rem' }}>
+              {comments.length === 0 ? (
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>No comments yet.</p>
+              ) : (
+                comments.map(c => (
+                  <div key={c.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', padding: '0.5rem', backgroundColor: 'var(--bg-app)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <strong style={{ fontSize: '0.8rem', color: 'var(--text-primary)' }}>{c.authorName}</strong>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{new Date(c.createdAt).toLocaleString()}</span>
+                    </div>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap' }}>{c.body}</div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <form onSubmit={handlePostComment} style={{ display: 'flex', gap: '0.5rem' }}>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Write a comment..."
+                value={newComment}
+                onChange={e => setNewComment(e.target.value)}
+                disabled={postingComment}
+                style={{ flex: 1, fontSize: '0.85rem' }}
+              />
+              <button type="submit" className="btn btn-primary" disabled={postingComment || !newComment.trim()}>
+                {postingComment ? <span className="spin">...</span> : <Send size={16} />}
+              </button>
+            </form>
+          </div>
+          
+          {/* AI Insights Section */}
+          {insights && (
+            <div
+              style={{
+                marginTop: '1rem',
+                padding: '0.85rem 1rem',
+                backgroundColor: 'var(--bg-surface-elevated)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 'var(--radius-md)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                <Brain size={16} style={{ color: 'var(--primary)' }} />
+                <h4 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-primary)' }}>AI Insights</h4>
+              </div>
+              
+              <div style={{ marginBottom: '1rem' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Auto-Generated Summary</div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: 1.5 }}>
+                  {insights.summary}
+                </div>
+              </div>
+
+              {insights.extractedEntities && Object.keys(insights.extractedEntities).length > 0 && (
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Extracted Entities</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    {Object.entries(insights.extractedEntities).map(([key, values]) => (
+                      values.length > 0 && values.map((val, idx) => (
+                        <span key={`${key}-${idx}`} style={{
+                          fontSize: '0.7rem',
+                          backgroundColor: 'var(--bg-app)',
+                          border: '1px solid var(--border-subtle)',
+                          color: 'var(--text-secondary)',
+                          padding: '0.2rem 0.5rem',
+                          borderRadius: '12px'
+                        }}>
+                          <strong>{key}:</strong> {val}
+                        </span>
+                      ))
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="modal-footer">

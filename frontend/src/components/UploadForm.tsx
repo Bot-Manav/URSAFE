@@ -1,5 +1,5 @@
 import React, { FormEvent, useState, useRef } from 'react'
-import { UploadCloud, File, X, ShieldAlert, FileCheck, FileText, HelpCircle, Loader2 } from 'lucide-react'
+import { UploadCloud, File, X, ShieldAlert, FileCheck, FileText, HelpCircle, Loader2, Calendar } from 'lucide-react'
 import { apiClient } from '../api/client'
 
 interface UploadFormProps {
@@ -11,6 +11,7 @@ interface UploadFormProps {
 export function UploadForm({ caseId, onUploaded, documentGroupId }: UploadFormProps) {
   const [files, setFiles] = useState<File[]>([])
   const [tag, setTag] = useState<string>('EVIDENCE')
+  const [retentionDate, setRetentionDate] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
@@ -70,6 +71,11 @@ export function UploadForm({ caseId, onUploaded, documentGroupId }: UploadFormPr
         const formData = new FormData()
         formData.append('file', file)
         formData.append('tag', tag)
+        if (retentionDate) {
+          // Send ISO string directly if it's a valid date string from the picker
+          const isoDate = new Date(retentionDate).toISOString();
+          formData.append('retentionDate', isoDate)
+        }
         if (documentGroupId) {
           formData.append('documentGroupId', documentGroupId)
         }
@@ -90,6 +96,7 @@ export function UploadForm({ caseId, onUploaded, documentGroupId }: UploadFormPr
 
       setFiles([])
       setTag('EVIDENCE')
+      setRetentionDate('')
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
@@ -194,6 +201,24 @@ export function UploadForm({ caseId, onUploaded, documentGroupId }: UploadFormPr
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Retention Policy */}
+      <div style={{ marginTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+          <Calendar size={14} /> Compliance Retention Date (Optional):
+        </label>
+        <input
+          type="date"
+          className="form-control"
+          value={retentionDate}
+          onChange={(e) => setRetentionDate(e.target.value)}
+          min={new Date().toISOString().split('T')[0]} // Cannot set retention in the past
+          style={{ maxWidth: '250px' }}
+        />
+        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+          Document will be automatically archived by background cron job after this date.
+        </span>
       </div>
 
       {uploading && (

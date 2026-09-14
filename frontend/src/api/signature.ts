@@ -6,6 +6,7 @@ export interface SignatureResponse {
     signedByUserId: string;
     signedByUserEmail: string;
     signedByUserFullName: string;
+    signedByUserRole: string;
     signedAt: string;
     algorithm: string;
     isValid: boolean;

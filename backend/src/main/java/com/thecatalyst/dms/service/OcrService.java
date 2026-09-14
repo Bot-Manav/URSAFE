@@ -23,17 +23,20 @@ public class OcrService {
     private final EncryptionService encryptionService;
     private final HashingService hashingService;
     private final com.thecatalyst.dms.repository.DocumentSearchIndexRepository searchIndexRepository;
+    private final AiProcessingService aiProcessingService;
     private final String tessdataPath;
 
     public OcrService(DocumentRepository documentRepository,
                       EncryptionService encryptionService,
                       HashingService hashingService,
                       com.thecatalyst.dms.repository.DocumentSearchIndexRepository searchIndexRepository,
+                      AiProcessingService aiProcessingService,
                       @Value("${app.ocr.tessdata-path:./tessdata}") String tessdataPath) {
         this.documentRepository = documentRepository;
         this.encryptionService = encryptionService;
         this.hashingService = hashingService;
         this.searchIndexRepository = searchIndexRepository;
+        this.aiProcessingService = aiProcessingService;
         this.tessdataPath = tessdataPath;
     }
 
@@ -94,6 +97,9 @@ public class OcrService {
                 }
             }
             searchIndexRepository.saveAll(indexEntities);
+
+            // Trigger AI Classification & Extraction
+            aiProcessingService.processAndStore(doc.getId(), extractedText);
 
         } catch (Exception e) {
             e.printStackTrace();

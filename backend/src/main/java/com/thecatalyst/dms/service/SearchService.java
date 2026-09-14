@@ -52,7 +52,7 @@ public class SearchService {
                 .collect(Collectors.toList());
         }
         
-        return docs.stream().map(documentService::toResponse).collect(Collectors.toList());
+        return documentService.toResponseList(docs);
     }
     
     @Transactional(readOnly = true)
@@ -89,7 +89,7 @@ public class SearchService {
             docs = docs.stream().filter(d -> d.getTag().name().equalsIgnoreCase(tag)).collect(Collectors.toList());
         }
         
-        return docs.stream().map(documentService::toResponse).collect(Collectors.toList());
+        return documentService.toResponseList(docs);
     }
     
     private Set<UUID> getMatchedDocumentIdsFromIndex(String keyword) {

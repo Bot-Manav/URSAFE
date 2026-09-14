@@ -17,5 +17,9 @@ public record DocumentResponse(
         Instant uploadedAt,
         int version,
         UUID documentGroupId,
-        DocumentTag tag
+        DocumentTag tag,
+        String status,
+        java.util.List<String> signedByNames,
+        Instant retentionDate,
+        boolean isArchived
 ) {}

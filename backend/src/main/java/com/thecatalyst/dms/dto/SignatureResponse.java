@@ -9,6 +9,7 @@ public record SignatureResponse(
         UUID signedByUserId,
         String signedByUserEmail,
         String signedByUserFullName,
+        String signedByUserRole,
         Instant signedAt,
         String algorithm,
         boolean isValid

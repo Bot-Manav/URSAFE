@@ -64,4 +64,15 @@ public class User {
 
     @Column(name = "totp_secret_iv")
     private String totpSecretIv;
+
+    // MVP Note: For production, private keys should ideally be kept client-side or in an HSM.
+    // Storing them server-side here is a stated limitation of the MVP.
+    @Column(name = "signature_public_key", columnDefinition="TEXT")
+    private String signaturePublicKey;
+
+    @Column(name = "encrypted_signature_private_key", columnDefinition="TEXT")
+    private String encryptedSignaturePrivateKey;
+
+    @Column(name = "signature_private_key_iv", columnDefinition="TEXT")
+    private String signaturePrivateKeyIv;
 }

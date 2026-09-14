@@ -1,6 +1,6 @@
 package com.thecatalyst.dms.service;
 
-import com.thecatalyst.dms.dto.DocumentSummary;
+import com.thecatalyst.dms.dto.DocumentResponse;
 import com.thecatalyst.dms.entity.DocumentEntity;
 import com.thecatalyst.dms.repository.DocumentRepository;
 import com.thecatalyst.dms.repository.DocumentSearchIndexRepository;
@@ -33,7 +33,7 @@ public class SearchService {
     }
 
     @Transactional(readOnly = true)
-    public List<DocumentSummary> searchCaseDocuments(UUID caseId, String keyword, String tag, AuthenticatedUser actor) {
+    public List<DocumentResponse> searchCaseDocuments(UUID caseId, String keyword, String tag, AuthenticatedUser actor) {
         caseService.assertAccess(caseId, actor);
         
         List<DocumentEntity> docs = documentRepository.findByCaseIdAndIsDeletedFalse(caseId);
@@ -56,7 +56,7 @@ public class SearchService {
     }
     
     @Transactional(readOnly = true)
-    public List<DocumentSummary> adminCrossCaseSearch(String keyword, String tag, AuthenticatedUser actor) {
+    public List<DocumentResponse> adminCrossCaseSearch(String keyword, String tag, AuthenticatedUser actor) {
         if (!"ADMIN".equals(actor.role())) {
             throw new com.thecatalyst.dms.exception.ApiException(org.springframework.http.HttpStatus.FORBIDDEN, "Admin only");
         }

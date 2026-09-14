@@ -26,7 +26,7 @@ public class CaseController {
 
     // Route-level RBAC (who may even attempt this action) - combined with
     // the object-level BOLA check inside CaseService for the specific case.
-    @PreAuthorize("hasAnyRole('ADMIN','LAW_ENFORCEMENT','INVESTIGATION_OFFICER')")
+    @PreAuthorize("hasAnyRole('ADMIN','LAW_ENFORCEMENT','INVESTIGATION_OFFICER','SUPERVISOR')")
     @PostMapping
     public ResponseEntity<CaseEntity> createCase(@Valid @RequestBody CaseRequest request,
                                                   @AuthenticationPrincipal AuthenticatedUser actor,
@@ -45,6 +45,7 @@ public class CaseController {
         return ResponseEntity.ok(caseService.getCase(caseId, actor));
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','LAW_ENFORCEMENT','INVESTIGATION_OFFICER','SUPERVISOR')")
     @PostMapping("/{caseId}/access")
     public ResponseEntity<Void> grantAccess(@PathVariable UUID caseId,
                                              @Valid @RequestBody GrantAccessRequest request,
@@ -54,6 +55,7 @@ public class CaseController {
         return ResponseEntity.noContent().build();
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','LAW_ENFORCEMENT','INVESTIGATION_OFFICER','SUPERVISOR')")
     @PatchMapping("/{caseId}/status")
     public ResponseEntity<CaseEntity> updateCaseStatus(@PathVariable UUID caseId,
                                                         @Valid @RequestBody com.thecatalyst.dms.dto.CaseStatusUpdateRequest request,

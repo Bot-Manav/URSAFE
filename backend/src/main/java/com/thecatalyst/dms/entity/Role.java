@@ -6,5 +6,7 @@ public enum Role {
     FORENSIC_OFFICER,
     LEGAL_COURT,
     ADMIN,
+    AUDITOR,
+    SUPERVISOR,
     MFA_PENDING
 }

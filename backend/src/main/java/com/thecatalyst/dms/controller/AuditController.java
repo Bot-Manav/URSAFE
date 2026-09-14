@@ -18,6 +18,7 @@ public class AuditController {
         this.auditLogRepository = auditLogRepository;
     }
 
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN','AUDITOR')")
     @GetMapping
     public ResponseEntity<List<AuditLog>> listAuditLogs(@RequestParam(required = false) UUID caseId,
                                                         @RequestParam(required = false) UUID documentId) {

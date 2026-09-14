@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
 import {
   FolderPlus,
@@ -70,8 +70,14 @@ export default function Dashboard() {
   }
 
   useEffect(() => {
-    loadCases()
-  }, [])
+    if (user?.role !== 'AUDITOR') {
+      loadCases()
+    }
+  }, [user])
+
+  if (user?.role === 'AUDITOR') {
+    return <Navigate to="/audit" replace />
+  }
 
   async function handleCreate(e: FormEvent) {
     e.preventDefault()

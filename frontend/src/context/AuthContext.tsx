@@ -7,6 +7,8 @@ export type Role =
   | 'FORENSIC_OFFICER'
   | 'LEGAL_COURT'
   | 'ADMIN'
+  | 'AUDITOR'
+  | 'SUPERVISOR'
 
 interface AuthUser {
   userId: string

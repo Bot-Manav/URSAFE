@@ -1,5 +1,6 @@
 package com.thecatalyst.dms.controller;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.thecatalyst.dms.dto.DocumentResponse;
 import com.thecatalyst.dms.entity.DocumentTag;
 import com.thecatalyst.dms.security.AuthenticatedUser;
@@ -28,6 +29,7 @@ public class DocumentController {
         this.documentService = documentService;
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','LAW_ENFORCEMENT','INVESTIGATION_OFFICER','SUPERVISOR')")
     @PostMapping(value = "/cases/{caseId}/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<DocumentResponse> upload(@PathVariable UUID caseId,
                                                      @RequestParam("file") MultipartFile file,
@@ -86,6 +88,7 @@ public class DocumentController {
                 .body(new ByteArrayResource(result.content()));
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','LAW_ENFORCEMENT','INVESTIGATION_OFFICER','SUPERVISOR')")
     @DeleteMapping("/documents/{documentId}")
     public ResponseEntity<Void> delete(@PathVariable UUID documentId,
                                          @AuthenticationPrincipal AuthenticatedUser actor,

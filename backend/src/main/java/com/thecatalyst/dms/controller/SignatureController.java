@@ -43,6 +43,7 @@ public class SignatureController {
         this.auditService = auditService;
     }
 
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN','LAW_ENFORCEMENT','INVESTIGATION_OFFICER','SUPERVISOR')")
     @PostMapping("/{documentId}/signatures")
     public ResponseEntity<SignatureResponse> signDocument(@PathVariable UUID documentId,
                                                           @AuthenticationPrincipal AuthenticatedUser actor,

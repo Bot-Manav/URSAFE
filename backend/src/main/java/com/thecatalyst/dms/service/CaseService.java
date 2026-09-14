@@ -83,7 +83,8 @@ public class CaseService {
      * document operation - never trust a valid JWT alone.
      */
     public void assertAccess(UUID caseId, AuthenticatedUser actor) {
-        if (Role.ADMIN.name().equals(actor.role())) {
+        if (Role.ADMIN.name().equals(actor.role()) || 
+            Role.SUPERVISOR.name().equals(actor.role())) {
             return;
         }
         boolean hasAccess = caseAccessRepository.existsByCaseIdAndUserId(caseId, actor.id());
@@ -136,7 +137,8 @@ public class CaseService {
      * CaseAccess grant - same BOLA boundary as assertAccess().
      */
     public List<CaseEntity> listVisibleCases(AuthenticatedUser actor) {
-        if (Role.ADMIN.name().equals(actor.role())) {
+        if (Role.ADMIN.name().equals(actor.role()) || 
+            Role.SUPERVISOR.name().equals(actor.role())) {
             return caseRepository.findAll();
         }
         List<UUID> caseIds = caseAccessRepository.findByUserId(actor.id())
@@ -165,9 +167,9 @@ public class CaseService {
         // Role-based validation
         String role = actor.role();
         boolean roleAllowed = switch (newStatus) {
-            case UNDER_INVESTIGATION -> role.equals(Role.ADMIN.name()) || role.equals(Role.LAW_ENFORCEMENT.name()) || role.equals(Role.INVESTIGATION_OFFICER.name());
-            case CLOSED -> role.equals(Role.ADMIN.name()) || role.equals(Role.LAW_ENFORCEMENT.name());
-            case ARCHIVED -> role.equals(Role.ADMIN.name()) || role.equals(Role.LEGAL_COURT.name());
+            case UNDER_INVESTIGATION -> role.equals(Role.ADMIN.name()) || role.equals(Role.LAW_ENFORCEMENT.name()) || role.equals(Role.INVESTIGATION_OFFICER.name()) || role.equals(Role.SUPERVISOR.name());
+            case CLOSED -> role.equals(Role.ADMIN.name()) || role.equals(Role.LAW_ENFORCEMENT.name()) || role.equals(Role.SUPERVISOR.name());
+            case ARCHIVED -> role.equals(Role.ADMIN.name()) || role.equals(Role.LEGAL_COURT.name()) || role.equals(Role.SUPERVISOR.name());
             default -> false;
         };
 

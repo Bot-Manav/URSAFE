@@ -61,32 +61,38 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
         {/* Navigation Items */}
         <nav className="sidebar-nav">
-          <NavLink
-            to="/dashboard"
-            onClick={onClose}
-            className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-          >
-            <Briefcase size={18} />
-            <span>Case Vault</span>
-          </NavLink>
+          {user?.role !== 'AUDITOR' && (
+            <NavLink
+              to="/dashboard"
+              onClick={onClose}
+              className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+            >
+              <Briefcase size={18} />
+              <span>Case Vault</span>
+            </NavLink>
+          )}
 
-          <NavLink
-            to="/audit"
-            onClick={onClose}
-            className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-          >
-            <Activity size={18} />
-            <span>Audit Trail & Compliance</span>
-          </NavLink>
+          {(user?.role === 'ADMIN' || user?.role === 'AUDITOR') && (
+            <NavLink
+              to="/audit"
+              onClick={onClose}
+              className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+            >
+              <Activity size={18} />
+              <span>Audit Trail & Compliance</span>
+            </NavLink>
+          )}
 
-          <NavLink
-            to="/users"
-            onClick={onClose}
-            className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-          >
-            <Users size={18} />
-            <span>Personnel Directory</span>
-          </NavLink>
+          {user?.role !== 'AUDITOR' && (
+            <NavLink
+              to="/users"
+              onClick={onClose}
+              className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+            >
+              <Users size={18} />
+              <span>Personnel Directory</span>
+            </NavLink>
+          )}
 
           {user?.role === 'ADMIN' && (
             <>

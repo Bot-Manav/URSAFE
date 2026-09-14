@@ -1,6 +1,6 @@
 package com.thecatalyst.dms.controller;
 
-import com.thecatalyst.dms.dto.DocumentSummary;
+import com.thecatalyst.dms.dto.DocumentResponse;
 import com.thecatalyst.dms.security.AuthenticatedUser;
 import com.thecatalyst.dms.service.SearchService;
 import org.springframework.http.ResponseEntity;
@@ -21,23 +21,23 @@ public class SearchController {
     }
 
     @GetMapping("/cases/{caseId}/search")
-    public ResponseEntity<List<DocumentSummary>> searchCaseDocuments(
+    public ResponseEntity<List<DocumentResponse>> searchCaseDocuments(
             @PathVariable UUID caseId,
             @RequestParam(required = false) String q,
             @RequestParam(required = false) String tag,
             @AuthenticationPrincipal AuthenticatedUser actor) {
         
-        List<DocumentSummary> results = searchService.searchCaseDocuments(caseId, q, tag, actor);
+        List<DocumentResponse> results = searchService.searchCaseDocuments(caseId, q, tag, actor);
         return ResponseEntity.ok(results);
     }
 
     @GetMapping("/admin/search")
-    public ResponseEntity<List<DocumentSummary>> adminCrossCaseSearch(
+    public ResponseEntity<List<DocumentResponse>> adminCrossCaseSearch(
             @RequestParam(required = false) String q,
             @RequestParam(required = false) String tag,
             @AuthenticationPrincipal AuthenticatedUser actor) {
         
-        List<DocumentSummary> results = searchService.adminCrossCaseSearch(q, tag, actor);
+        List<DocumentResponse> results = searchService.adminCrossCaseSearch(q, tag, actor);
         return ResponseEntity.ok(results);
     }
 }

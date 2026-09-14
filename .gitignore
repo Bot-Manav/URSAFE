@@ -27,3 +27,8 @@ frontend/.vite/
 # OS
 .DS_Store
 Thumbs.db
+
+# Backups
+backups/
+*.sql
+*.sql.gz

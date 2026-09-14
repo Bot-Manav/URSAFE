@@ -21,7 +21,9 @@ import {
   Loader2,
   RefreshCw,
   X,
-  AlertTriangle
+  AlertTriangle,
+  Lock,
+  Unlock
 } from 'lucide-react'
 import { apiClient } from '../api/client'
 import { UploadForm } from '../components/UploadForm'
@@ -183,6 +185,18 @@ export default function CaseDetail() {
       } else {
         alert('Failed to download document.')
       }
+    }
+  }
+
+  async function handleApproveDocument(docId: string) {
+    if (!confirm('Are you sure you want to approve this document?')) return
+    try {
+      await apiClient.patch(`/api/documents/${docId}/approve`)
+      setSuccessMessage('Document has been approved.')
+      setTimeout(() => setSuccessMessage(null), 3500)
+      await loadData()
+    } catch (e: any) {
+      alert(e.response?.data?.message || 'Failed to approve document.')
     }
   }
 
@@ -486,8 +500,10 @@ export default function CaseDetail() {
                       <th>Document Name</th>
                       <th>Category</th>
                       <th>Version</th>
+                      <th>Status</th>
                       <th>File Size</th>
                       <th>SHA-256 Hash</th>
+                      <th>Signatures</th>
                       <th>Timestamp</th>
                       <th>Actions</th>
                     </tr>
@@ -523,6 +539,28 @@ export default function CaseDetail() {
                           <td>
                             <span className="badge-version">v{d.version}</span>
                           </td>
+                          <td>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                              {d.isArchived ? (
+                                <span style={{ fontSize: '0.75rem', backgroundColor: 'var(--bg-app)', color: 'var(--text-muted)', border: '1px solid var(--border-subtle)', padding: '0.2rem 0.5rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                                  <Lock size={12} /> Archived
+                                </span>
+                              ) : d.status === 'LOCKED' ? (
+                                <span style={{ fontSize: '0.75rem', backgroundColor: 'var(--warning-bg)', color: 'var(--warning-text)', padding: '0.2rem 0.5rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                                  <Lock size={12} /> Pending Approval
+                                </span>
+                              ) : (
+                                <span style={{ fontSize: '0.75rem', backgroundColor: 'var(--success-bg)', color: 'var(--success-text)', padding: '0.2rem 0.5rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                                  <Unlock size={12} /> Approved
+                                </span>
+                              )}
+                              {d.retentionDate && !d.isArchived && (
+                                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                                  Retention: {new Date(d.retentionDate).toLocaleDateString()}
+                                </span>
+                              )}
+                            </div>
+                          </td>
                           <td>{(d.fileSizeBytes / 1024).toFixed(1)} KB</td>
                           <td>
                             <div
@@ -539,6 +577,20 @@ export default function CaseDetail() {
                               )}
                             </div>
                           </td>
+                          <td>
+                            {d.signedByNames && d.signedByNames.length > 0 ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                                {d.signedByNames.map((name, idx) => (
+                                  <span key={idx} style={{ fontSize: '0.75rem', backgroundColor: 'var(--success-bg)', color: 'var(--success-text)', padding: '0.1rem 0.4rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
+                                    <ShieldCheck size={10} />
+                                    {name}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Unsigned</span>
+                            )}
+                          </td>
                           <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                             {new Date(d.uploadedAt).toLocaleString()}
                           </td>
@@ -554,14 +606,26 @@ export default function CaseDetail() {
                                 <span>Preview</span>
                               </button>
 
-                              <button
-                                type="button"
-                                className="btn btn-outline btn-sm"
-                                onClick={() => handleDownload(d)}
-                                title="Download & Verify Integrity"
-                              >
-                                <Download size={14} />
-                              </button>
+                              {d.status === 'APPROVED' ? (
+                                <button
+                                  type="button"
+                                  className="btn btn-outline btn-sm"
+                                  onClick={() => handleDownload(d)}
+                                  title="Download & Verify Integrity"
+                                >
+                                  <Download size={14} />
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="btn btn-outline btn-sm"
+                                  onClick={() => handleApproveDocument(d.id)}
+                                  title="Approve Document Edit"
+                                  style={{ borderColor: 'var(--success-text)', color: 'var(--success-text)' }}
+                                >
+                                  <Check size={14} /> Approve
+                                </button>
+                              )}
 
                               {!isHistory && (
                                 <>

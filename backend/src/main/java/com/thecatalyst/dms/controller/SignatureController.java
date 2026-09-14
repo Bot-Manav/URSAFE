@@ -66,6 +66,7 @@ public class SignatureController {
                 signature.getSignedByUserId(),
                 user != null ? user.getEmail() : "Unknown",
                 user != null ? user.getFullName() : "Unknown",
+                user != null ? user.getRole().name() : "Unknown",
                 signature.getSignedAt(),
                 signature.getAlgorithm(),
                 true // freshly signed is always true
@@ -92,6 +93,7 @@ public class SignatureController {
                     sig.getSignedByUserId(),
                     user != null ? user.getEmail() : "Unknown",
                     user != null ? user.getFullName() : "Unknown",
+                    user != null ? user.getRole().name() : "Unknown",
                     sig.getSignedAt(),
                     sig.getAlgorithm(),
                     isValid

@@ -12,4 +12,5 @@ public interface DocumentSignatureRepository extends JpaRepository<DocumentSigna
     
     List<DocumentSignatureEntity> findByDocumentIdOrderBySignedAtDesc(UUID documentId);
     
+    List<DocumentSignatureEntity> findByDocumentIdIn(List<UUID> documentIds);
 }

@@ -78,6 +78,10 @@ public class DocumentEntity {
     @Builder.Default
     private DocumentTag tag = DocumentTag.OTHER;
 
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private String status = "APPROVED"; // APPROVED, LOCKED
+
     @Column(length = 20)
     @Builder.Default
     private String ocrStatus = "PENDING"; // PENDING, COMPLETED, FAILED, NOT_APPLICABLE
@@ -87,4 +91,11 @@ public class DocumentEntity {
 
     @Column(length = 50)
     private String ocrIvBase64;
+
+    @Column
+    private Instant retentionDate;
+
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    @Builder.Default
+    private boolean isArchived = false;
 }

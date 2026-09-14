@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -35,10 +36,11 @@ public class DocumentController {
                                                      @RequestParam("file") MultipartFile file,
                                                      @RequestParam(value = "documentGroupId", required = false) UUID documentGroupId,
                                                      @RequestParam(value = "tag", required = false) DocumentTag tag,
+                                                     @RequestParam(value = "retentionDate", required = false) Instant retentionDate,
                                                      @AuthenticationPrincipal AuthenticatedUser actor,
                                                      HttpServletRequest httpRequest) {
         DocumentResponse response = documentService.upload(
-                caseId, file, documentGroupId, tag, actor, RequestUtils.clientIp(httpRequest));
+                caseId, file, documentGroupId, tag, retentionDate, actor, RequestUtils.clientIp(httpRequest));
         return ResponseEntity.ok(response);
     }
 
@@ -95,5 +97,14 @@ public class DocumentController {
                                          HttpServletRequest httpRequest) {
         documentService.delete(documentId, actor, RequestUtils.clientIp(httpRequest));
         return ResponseEntity.noContent().build();
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN','LAW_ENFORCEMENT','INVESTIGATION_OFFICER','SUPERVISOR')")
+    @PatchMapping("/documents/{documentId}/approve")
+    public ResponseEntity<DocumentResponse> approve(@PathVariable UUID documentId,
+                                         @AuthenticationPrincipal AuthenticatedUser actor,
+                                         HttpServletRequest httpRequest) {
+        DocumentResponse response = documentService.approveDocument(documentId, actor, RequestUtils.clientIp(httpRequest));
+        return ResponseEntity.ok(response);
     }
 }

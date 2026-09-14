@@ -16,4 +16,7 @@ public interface DocumentRepository extends JpaRepository<DocumentEntity, UUID> 
     Integer findMaxVersionByGroupId(@Param("groupId") UUID groupId);
     
     List<DocumentEntity> findByOriginalFileNameContainingIgnoreCaseAndIsDeletedFalse(String keyword);
+
+    @Query("SELECT d FROM DocumentEntity d WHERE d.retentionDate < :now AND d.isArchived = false AND d.isDeleted = false")
+    List<DocumentEntity> findExpiredDocuments(@Param("now") java.time.Instant now);
 }

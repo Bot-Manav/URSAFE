@@ -1,5 +1,6 @@
 package com.thecatalyst.dms.service;
 
+import com.thecatalyst.dms.dto.AiInsightResponse;
 import com.thecatalyst.dms.dto.DocumentResponse;
 import com.thecatalyst.dms.entity.DocumentEntity;
 import com.thecatalyst.dms.entity.DocumentTag;
@@ -14,12 +15,30 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.Collections;
+import java.util.Optional;
+
+import com.thecatalyst.dms.repository.DocumentSignatureRepository;
+import com.thecatalyst.dms.repository.UserRepository;
+import com.thecatalyst.dms.repository.DocumentAccessRepository;
+import com.thecatalyst.dms.repository.DocumentAiInsightRepository;
+import com.thecatalyst.dms.entity.DocumentSignatureEntity;
+import com.thecatalyst.dms.entity.DocumentAccessEntity;
+import com.thecatalyst.dms.entity.DocumentAccessLevel;
+import com.thecatalyst.dms.entity.User;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
 
 /**
  * SECURITY NOTE (upload path):
@@ -53,6 +72,12 @@ public class DocumentService {
     private final CaseService caseService;
     private final AuditService auditService;
     private final OcrService ocrService;
+    private final DocumentSignatureRepository signatureRepository;
+    private final UserRepository userRepository;
+    private final DocumentAccessRepository documentAccessRepository;
+    private final NotificationService notificationService;
+    private final DocumentAiInsightRepository documentAiInsightRepository;
+    private final ObjectMapper objectMapper;
     private final Path storageBasePath;
 
     public DocumentService(DocumentRepository documentRepository,
@@ -61,6 +86,12 @@ public class DocumentService {
                             CaseService caseService,
                             AuditService auditService,
                             OcrService ocrService,
+                            DocumentSignatureRepository signatureRepository,
+                            UserRepository userRepository,
+                            DocumentAccessRepository documentAccessRepository,
+                            NotificationService notificationService,
+                            DocumentAiInsightRepository documentAiInsightRepository,
+                            ObjectMapper objectMapper,
                             @Value("${app.storage.base-path}") String basePath) {
         this.documentRepository = documentRepository;
         this.hashingService = hashingService;
@@ -68,6 +99,12 @@ public class DocumentService {
         this.caseService = caseService;
         this.auditService = auditService;
         this.ocrService = ocrService;
+        this.signatureRepository = signatureRepository;
+        this.userRepository = userRepository;
+        this.documentAccessRepository = documentAccessRepository;
+        this.notificationService = notificationService;
+        this.documentAiInsightRepository = documentAiInsightRepository;
+        this.objectMapper = objectMapper;
         this.storageBasePath = Path.of(basePath).normalize();
         try {
             Files.createDirectories(storageBasePath);
@@ -77,7 +114,7 @@ public class DocumentService {
     }
 
     @Transactional
-    public DocumentResponse upload(UUID caseId, MultipartFile file, UUID documentGroupId, DocumentTag tag, AuthenticatedUser actor, String ip) {
+    public DocumentResponse upload(UUID caseId, MultipartFile file, UUID documentGroupId, DocumentTag tag, Instant retentionDate, AuthenticatedUser actor, String ip) {
         caseService.assertAccess(caseId, actor);
         validateFile(file);
 
@@ -116,19 +153,41 @@ public class DocumentService {
                 tag = DocumentTag.OTHER;
             }
 
+            // Status determination based on DocumentAccessEntity and Role
+            String status = "LOCKED";
+            if (Role.ADMIN.name().equals(actor.role())) {
+                status = "APPROVED";
+            } else {
+                com.thecatalyst.dms.entity.CaseEntity caseEntity = caseService.getCase(caseId, actor);
+                if (caseEntity.getCreatedBy().equals(actor.id())) {
+                    status = "APPROVED";
+                } else if (documentGroupId != null) {
+                    Optional<DocumentAccessEntity> access = documentAccessRepository.findByDocumentGroupIdAndUserId(documentGroupId, actor.id());
+                    if (access.isPresent() && access.get().getAccessLevel() == DocumentAccessLevel.WRITE) {
+                        status = "APPROVED";
+                    }
+                } else {
+                    // For a brand new document group, the uploader has WRITE access by default
+                    status = "APPROVED";
+                    documentAccessRepository.save(new DocumentAccessEntity(null, documentGroupId, actor.id(), DocumentAccessLevel.WRITE));
+                }
+            }
+
             DocumentEntity doc = DocumentEntity.builder()
                     .id(documentId)
                     .caseId(caseId)
                     .originalFileName(sanitizeDisplayName(file.getOriginalFilename()))
                     .storedFileName(storedFileName)
-                    .contentType(file.getContentType())
-                    .fileSizeBytes(plaintext.length)
+                    .contentType(file.getContentType() != null ? file.getContentType() : "application/octet-stream")
+                    .fileSizeBytes(file.getSize())
                     .sha256Hash(hash)
                     .ivBase64(Base64.getEncoder().encodeToString(encrypted.iv()))
                     .uploadedBy(actor.id())
                     .version(version)
                     .documentGroupId(documentGroupId)
                     .tag(tag)
+                    .status(status)
+                    .retentionDate(retentionDate)
                     .build();
             doc = documentRepository.save(doc);
 
@@ -137,7 +196,7 @@ public class DocumentService {
             String ext = extensionOf(file.getOriginalFilename());
             ocrService.processAsync(doc.getId(), plaintext, ext);
             
-            return toResponse(doc);
+            return toResponse(doc, Collections.emptyList());
         } catch (IOException e) {
             throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to store document");
         }
@@ -180,9 +239,95 @@ public class DocumentService {
         }
     }
 
+    public List<DocumentResponse> toResponseList(List<DocumentEntity> docs) {
+        if (docs.isEmpty()) {
+            return Collections.emptyList();
+        }
+        
+        List<UUID> docIds = docs.stream().map(DocumentEntity::getId).toList();
+        List<DocumentSignatureEntity> allSignatures = signatureRepository.findByDocumentIdIn(docIds);
+        
+        Set<UUID> userIds = allSignatures.stream().map(DocumentSignatureEntity::getSignedByUserId).collect(Collectors.toSet());
+        Map<UUID, String> userNameMap = userRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(User::getId, User::getFullName));
+                
+        Map<UUID, List<String>> signaturesByDoc = allSignatures.stream()
+                .collect(Collectors.groupingBy(
+                        DocumentSignatureEntity::getDocumentId,
+                        Collectors.mapping(sig -> userNameMap.getOrDefault(sig.getSignedByUserId(), "Unknown User"), Collectors.toList())
+                ));
+                
+        return docs.stream()
+                .map(doc -> toResponse(doc, signaturesByDoc.getOrDefault(doc.getId(), Collections.emptyList())))
+                .toList();
+    }
+
     public List<DocumentResponse> listForCase(UUID caseId, AuthenticatedUser actor) {
         caseService.assertAccess(caseId, actor);
-        return documentRepository.findByCaseIdAndIsDeletedFalse(caseId).stream().map(this::toResponse).toList();
+        List<DocumentEntity> docs = documentRepository.findByCaseIdAndIsDeletedFalse(caseId);
+        return toResponseList(docs);
+    }
+
+    @Transactional
+    public DocumentResponse approveDocument(UUID documentId, AuthenticatedUser actor, String ip) {
+        DocumentEntity doc = documentRepository.findById(documentId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Document not found"));
+        
+        caseService.assertAccess(doc.getCaseId(), actor);
+        
+        com.thecatalyst.dms.entity.CaseEntity caseEntity = caseService.getCase(doc.getCaseId(), actor);
+        if (!Role.ADMIN.name().equals(actor.role()) && !caseEntity.getCreatedBy().equals(actor.id())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Only admins or the case creator can approve documents");
+        }
+        
+        doc.setStatus("APPROVED");
+        documentRepository.save(doc);
+        
+        // Notify the uploader
+        if (!doc.getUploadedBy().equals(actor.id())) {
+            notificationService.notifyUser(doc.getUploadedBy(), "Your proposed document edit for '" + doc.getOriginalFileName() + "' has been approved.");
+        }
+        
+        auditService.log(actor.id(), "DOCUMENT_APPROVE", doc.getCaseId(), doc.getId(), doc.getOriginalFileName(), ip);
+        return toResponse(doc, Collections.emptyList()); // Front-end will re-fetch list anyway
+    }
+
+    @Transactional(readOnly = true)
+    public AiInsightResponse getDocumentInsights(UUID documentId, AuthenticatedUser actor) {
+        DocumentEntity doc = documentRepository.findById(documentId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Document not found"));
+                
+        // Ensure access (same logic as download/preview)
+        caseService.assertAccess(doc.getCaseId(), actor);
+
+        var insightOpt = documentAiInsightRepository.findByDocumentId(documentId);
+        if (insightOpt.isEmpty()) {
+            return new AiInsightResponse(documentId, "Insights are processing or not available.", Collections.emptyMap());
+        }
+        var insight = insightOpt.get();
+
+        try {
+            // Decrypt summary
+            byte[] summaryBytes = encryptionService.decrypt(
+                Base64.getDecoder().decode(insight.getEncryptedSummaryBase64()),
+                Base64.getDecoder().decode(insight.getIvBase64())
+            );
+            String summary = new String(summaryBytes, StandardCharsets.UTF_8);
+
+            // Decrypt entities
+            byte[] entitiesBytes = encryptionService.decrypt(
+                Base64.getDecoder().decode(insight.getEncryptedEntitiesJsonBase64()),
+                Base64.getDecoder().decode(insight.getIvBase64())
+            );
+            String entitiesJson = new String(entitiesBytes, StandardCharsets.UTF_8);
+            
+            Map<String, List<String>> entities = objectMapper.readValue(entitiesJson, new TypeReference<Map<String, List<String>>>() {});
+
+            return new AiInsightResponse(documentId, summary, entities);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new AiInsightResponse(documentId, "Error decrypting insights.", Collections.emptyMap());
+        }
     }
 
     @Transactional
@@ -261,9 +406,9 @@ public class DocumentService {
         return stripped.length() > 255 ? stripped.substring(0, 255) : stripped;
     }
 
-    public DocumentResponse toResponse(DocumentEntity doc) {
+    public DocumentResponse toResponse(DocumentEntity doc, List<String> signedByNames) {
         return new DocumentResponse(doc.getId(), doc.getCaseId(), doc.getOriginalFileName(),
                 doc.getContentType(), doc.getFileSizeBytes(), doc.getSha256Hash(),
-                doc.getUploadedBy(), doc.getUploadedAt(), doc.getVersion(), doc.getDocumentGroupId(), doc.getTag());
+                doc.getUploadedBy(), doc.getUploadedAt(), doc.getVersion(), doc.getDocumentGroupId(), doc.getTag(), doc.getStatus(), signedByNames, doc.getRetentionDate(), doc.isArchived());
     }
 }

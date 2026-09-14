@@ -1,9 +1,9 @@
 package com.thecatalyst.dms.service;
 
 import com.thecatalyst.dms.entity.DocumentSignatureEntity;
+import com.thecatalyst.dms.entity.User;
 import com.thecatalyst.dms.repository.DocumentSignatureRepository;
-import jakarta.annotation.PostConstruct;
-import org.springframework.beans.factory.annotation.Value;
+import com.thecatalyst.dms.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
 import java.security.*;
@@ -20,34 +20,48 @@ public class SignatureService {
     private static final String ALGORITHM = "SHA256withECDSA";
     
     private final DocumentSignatureRepository signatureRepository;
-    
-    private PrivateKey privateKey;
-    private PublicKey publicKey;
-    
-    @Value("${app.signature.private-key:}")
-    private String privateKeyBase64;
-    
-    @Value("${app.signature.public-key:}")
-    private String publicKeyBase64;
+    private final UserRepository userRepository;
+    private final EncryptionService encryptionService;
 
-    public SignatureService(DocumentSignatureRepository signatureRepository) {
+    public SignatureService(DocumentSignatureRepository signatureRepository,
+                            UserRepository userRepository,
+                            EncryptionService encryptionService) {
         this.signatureRepository = signatureRepository;
+        this.userRepository = userRepository;
+        this.encryptionService = encryptionService;
     }
 
-    @PostConstruct
-    public void init() throws Exception {
-        if (privateKeyBase64 != null && !privateKeyBase64.isBlank() && publicKeyBase64 != null && !publicKeyBase64.isBlank()) {
-            KeyFactory keyFactory = KeyFactory.getInstance("EC");
-            privateKey = keyFactory.generatePrivate(new PKCS8EncodedKeySpec(Base64.getDecoder().decode(privateKeyBase64)));
-            publicKey = keyFactory.generatePublic(new X509EncodedKeySpec(Base64.getDecoder().decode(publicKeyBase64)));
-        } else {
-            // Generate ephemeral keypair for development/testing if not provided
-            KeyPairGenerator keyGen = KeyPairGenerator.getInstance("EC");
-            keyGen.initialize(256, new SecureRandom());
-            KeyPair keyPair = keyGen.generateKeyPair();
-            this.privateKey = keyPair.getPrivate();
-            this.publicKey = keyPair.getPublic();
-        }
+    private void generateAndStoreUserKeyPair(User user) throws Exception {
+        KeyPairGenerator keyGen = KeyPairGenerator.getInstance("EC");
+        keyGen.initialize(256, new SecureRandom());
+        KeyPair keyPair = keyGen.generateKeyPair();
+        
+        String pubKeyBase64 = Base64.getEncoder().encodeToString(keyPair.getPublic().getEncoded());
+        byte[] privKeyBytes = keyPair.getPrivate().getEncoded();
+        
+        // Encrypt the private key
+        EncryptionService.EncryptedPayload payload = encryptionService.encrypt(privKeyBytes);
+        
+        user.setSignaturePublicKey(pubKeyBase64);
+        user.setEncryptedSignaturePrivateKey(Base64.getEncoder().encodeToString(payload.ciphertext()));
+        user.setSignaturePrivateKeyIv(Base64.getEncoder().encodeToString(payload.iv()));
+        userRepository.save(user);
+    }
+
+    private PrivateKey getPrivateKey(User user) throws Exception {
+        byte[] encryptedPrivKey = Base64.getDecoder().decode(user.getEncryptedSignaturePrivateKey());
+        byte[] iv = Base64.getDecoder().decode(user.getSignaturePrivateKeyIv());
+        
+        byte[] privKeyBytes = encryptionService.decrypt(encryptedPrivKey, iv);
+        
+        KeyFactory keyFactory = KeyFactory.getInstance("EC");
+        return keyFactory.generatePrivate(new PKCS8EncodedKeySpec(privKeyBytes));
+    }
+
+    private PublicKey getPublicKey(User user) throws Exception {
+        byte[] pubKeyBytes = Base64.getDecoder().decode(user.getSignaturePublicKey());
+        KeyFactory keyFactory = KeyFactory.getInstance("EC");
+        return keyFactory.generatePublic(new X509EncodedKeySpec(pubKeyBytes));
     }
 
     /**
@@ -67,6 +81,15 @@ public class SignatureService {
      */
     public DocumentSignatureEntity signDocument(UUID documentId, String documentHash, UUID userId) {
         try {
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+                    
+            if (user.getSignaturePublicKey() == null || user.getEncryptedSignaturePrivateKey() == null) {
+                generateAndStoreUserKeyPair(user);
+            }
+            
+            PrivateKey privateKey = getPrivateKey(user);
+            
             Instant now = Instant.now();
             byte[] payload = constructPayload(documentId, documentHash, userId, now);
             
@@ -95,6 +118,15 @@ public class SignatureService {
      */
     public boolean verifySignature(DocumentSignatureEntity signature, String currentDocumentHash) {
         try {
+            User signer = userRepository.findById(signature.getSignedByUserId())
+                    .orElse(null);
+                    
+            if (signer == null || signer.getSignaturePublicKey() == null) {
+                return false; // Cannot verify without the public key
+            }
+            
+            PublicKey publicKey = getPublicKey(signer);
+            
             byte[] payload = constructPayload(
                     signature.getDocumentId(), 
                     currentDocumentHash, 

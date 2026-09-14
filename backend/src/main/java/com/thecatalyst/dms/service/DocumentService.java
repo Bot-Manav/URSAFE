@@ -215,6 +215,27 @@ public class DocumentService {
         if (ext == null || !ALLOWED_EXTENSIONS.contains(ext.toLowerCase())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "File extension not permitted");
         }
+        
+        try {
+            byte[] bytes = file.getBytes();
+            if (bytes.length < 4 && !ext.equalsIgnoreCase("txt")) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "File too small");
+            }
+            if (ext.equalsIgnoreCase("pdf") && (bytes[0] != 0x25 || bytes[1] != 0x50 || bytes[2] != 0x44 || bytes[3] != 0x46)) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "File content does not match PDF format");
+            }
+            if (ext.equalsIgnoreCase("png") && (bytes[0] != (byte) 0x89 || bytes[1] != 0x50 || bytes[2] != 0x4E || bytes[3] != 0x47)) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "File content does not match PNG format");
+            }
+            if ((ext.equalsIgnoreCase("jpg") || ext.equalsIgnoreCase("jpeg")) && (bytes[0] != (byte) 0xFF || bytes[1] != (byte) 0xD8 || bytes[2] != (byte) 0xFF)) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "File content does not match JPEG format");
+            }
+            if (ext.equalsIgnoreCase("docx") && (bytes[0] != 0x50 || bytes[1] != 0x4B || bytes[2] != 0x03 || bytes[3] != 0x04)) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "File content does not match DOCX format");
+            }
+        } catch (IOException e) {
+            throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to read file for validation");
+        }
     }
 
     private String extensionOf(String fileName) {

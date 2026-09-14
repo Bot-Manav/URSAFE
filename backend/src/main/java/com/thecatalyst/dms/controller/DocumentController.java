@@ -65,6 +65,27 @@ public class DocumentController {
                 .body(new ByteArrayResource(result.content()));
     }
 
+    @GetMapping("/documents/{documentId}/preview")
+    public ResponseEntity<ByteArrayResource> preview(@PathVariable UUID documentId,
+                                                        @AuthenticationPrincipal AuthenticatedUser actor,
+                                                        HttpServletRequest httpRequest) {
+        var result = documentService.download(documentId, actor, RequestUtils.clientIp(httpRequest));
+        
+        String ct = result.contentType() != null ? result.contentType() : "";
+        if (!ct.equals("application/pdf") && !ct.equals("image/png") && !ct.equals("image/jpeg")) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        ContentDisposition disposition = ContentDisposition.inline()
+                .filename(result.fileName(), StandardCharsets.UTF_8)
+                .build();
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+                .contentType(MediaType.parseMediaType(ct))
+                .body(new ByteArrayResource(result.content()));
+    }
+
     @DeleteMapping("/documents/{documentId}")
     public ResponseEntity<Void> delete(@PathVariable UUID documentId,
                                          @AuthenticationPrincipal AuthenticatedUser actor,

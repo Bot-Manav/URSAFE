@@ -28,6 +28,9 @@ export function DocumentPreviewModal({ document: doc, onClose, onDownload }: Doc
   const [error, setError] = useState<string | null>(null)
   const [copiedHash, setCopiedHash] = useState(false)
 
+  const isImage = doc?.contentType?.startsWith('image/') || /\.(png|jpe?g)$/i.test(doc?.originalFileName || '')
+  const isPdf = doc?.contentType === 'application/pdf' || /\.pdf$/i.test(doc?.originalFileName || '')
+
   useEffect(() => {
     if (!doc) {
       setBlobUrl(null)
@@ -36,31 +39,30 @@ export function DocumentPreviewModal({ document: doc, onClose, onDownload }: Doc
       return
     }
 
+    if (!isImage && !isPdf) {
+      setLoading(false)
+      return
+    }
+
     let active = true
     setLoading(true)
     setError(null)
 
     apiClient
-      .get(`/api/documents/${doc.id}/download`, { responseType: 'blob' })
+      .get(`/api/documents/${doc.id}/preview`, { responseType: 'blob' })
       .then((res) => {
         if (!active) return
         const contentTypeHeader = typeof res.headers['content-type'] === 'string' ? res.headers['content-type'] : undefined
         const blob = new Blob([res.data], { type: doc.contentType || contentTypeHeader || 'application/octet-stream' })
         const url = URL.createObjectURL(blob)
         setBlobUrl(url)
-
-        if (doc.contentType?.startsWith('text/') || doc.originalFileName.endsWith('.txt') || doc.originalFileName.endsWith('.json')) {
-          const reader = new FileReader()
-          reader.onload = () => {
-            if (active) setTextContent(reader.result as string)
-          }
-          reader.readAsText(blob)
-        }
       })
       .catch((err) => {
         if (!active) return
         if (err.response?.status === 409) {
           setError('Integrity Check Failed! Document has been tampered with.')
+        } else if (err.response?.status === 400) {
+          setError('Preview restricted for security or unsupported format.')
         } else {
           setError('Could not load document preview.')
         }
@@ -84,9 +86,6 @@ export function DocumentPreviewModal({ document: doc, onClose, onDownload }: Doc
     setCopiedHash(true)
     setTimeout(() => setCopiedHash(false), 2000)
   }
-
-  const isImage = doc.contentType?.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)$/i.test(doc.originalFileName)
-  const isPdf = doc.contentType === 'application/pdf' || /\.pdf$/i.test(doc.originalFileName)
 
   return (
     <div className="modal-backdrop" onClick={onClose}>

@@ -21,13 +21,19 @@ public class OcrService {
 
     private final DocumentRepository documentRepository;
     private final EncryptionService encryptionService;
+    private final HashingService hashingService;
+    private final com.thecatalyst.dms.repository.DocumentSearchIndexRepository searchIndexRepository;
     private final String tessdataPath;
 
     public OcrService(DocumentRepository documentRepository,
                       EncryptionService encryptionService,
+                      HashingService hashingService,
+                      com.thecatalyst.dms.repository.DocumentSearchIndexRepository searchIndexRepository,
                       @Value("${app.ocr.tessdata-path:./tessdata}") String tessdataPath) {
         this.documentRepository = documentRepository;
         this.encryptionService = encryptionService;
+        this.hashingService = hashingService;
+        this.searchIndexRepository = searchIndexRepository;
         this.tessdataPath = tessdataPath;
     }
 
@@ -73,6 +79,21 @@ public class OcrService {
             doc.setOcrStatus("COMPLETED");
             
             documentRepository.save(doc);
+
+            // Blind Indexing
+            String[] words = extractedText.toLowerCase().split("[^a-z0-9]+");
+            java.util.Set<String> uniqueWords = new java.util.HashSet<>(java.util.Arrays.asList(words));
+            java.util.List<com.thecatalyst.dms.entity.DocumentSearchIndexEntity> indexEntities = new java.util.ArrayList<>();
+            for (String word : uniqueWords) {
+                if (word.length() > 2) { // Only index words longer than 2 characters
+                    String hash = hashingService.hmacSha256(word);
+                    indexEntities.add(com.thecatalyst.dms.entity.DocumentSearchIndexEntity.builder()
+                            .documentId(doc.getId())
+                            .wordHash(hash)
+                            .build());
+                }
+            }
+            searchIndexRepository.saveAll(indexEntities);
 
         } catch (Exception e) {
             e.printStackTrace();

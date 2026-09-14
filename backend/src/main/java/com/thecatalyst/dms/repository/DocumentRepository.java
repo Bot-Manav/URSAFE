@@ -14,4 +14,6 @@ public interface DocumentRepository extends JpaRepository<DocumentEntity, UUID> 
 
     @Query("SELECT MAX(d.version) FROM DocumentEntity d WHERE d.documentGroupId = :groupId")
     Integer findMaxVersionByGroupId(@Param("groupId") UUID groupId);
+    
+    List<DocumentEntity> findByOriginalFileNameContainingIgnoreCaseAndIsDeletedFalse(String keyword);
 }

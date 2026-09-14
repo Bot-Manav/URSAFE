@@ -261,7 +261,7 @@ public class DocumentService {
         return stripped.length() > 255 ? stripped.substring(0, 255) : stripped;
     }
 
-    private DocumentResponse toResponse(DocumentEntity doc) {
+    public DocumentResponse toResponse(DocumentEntity doc) {
         return new DocumentResponse(doc.getId(), doc.getCaseId(), doc.getOriginalFileName(),
                 doc.getContentType(), doc.getFileSizeBytes(), doc.getSha256Hash(),
                 doc.getUploadedBy(), doc.getUploadedAt(), doc.getVersion(), doc.getDocumentGroupId(), doc.getTag());

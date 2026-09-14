@@ -45,7 +45,10 @@ public class OcrService {
 
         try {
             ITesseract tesseract = new Tesseract();
-            tesseract.setDatapath(tessdataPath);
+            java.io.File tessFolder = new java.io.File(tessdataPath);
+            if (tessFolder.exists() && tessFolder.isDirectory()) {
+                tesseract.setDatapath(tessdataPath);
+            }
             
             BufferedImage image = ImageIO.read(new ByteArrayInputStream(plaintextBytes));
             if (image == null) {

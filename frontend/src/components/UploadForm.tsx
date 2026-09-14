@@ -53,14 +53,20 @@ export function UploadForm({ caseId, onUploaded, documentGroupId }: UploadFormPr
     setFiles((prev) => prev.filter((_, i) => i !== index))
   }
 
+  const [uploadProgress, setUploadProgress] = useState<number>(0)
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     if (files.length === 0) return
     setError(null)
     setUploading(true)
+    setUploadProgress(0)
+
+    const totalBytes = files.reduce((sum, file) => sum + file.size, 0)
+    const uploadedBytesPerFile = new Array(files.length).fill(0)
 
     try {
-      for (const file of files) {
+      const uploadPromises = files.map((file, index) => {
         const formData = new FormData()
         formData.append('file', file)
         formData.append('tag', tag)
@@ -68,10 +74,19 @@ export function UploadForm({ caseId, onUploaded, documentGroupId }: UploadFormPr
           formData.append('documentGroupId', documentGroupId)
         }
 
-        await apiClient.post(`/api/cases/${caseId}/documents`, formData, {
+        return apiClient.post(`/api/cases/${caseId}/documents`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
+          onUploadProgress: (progressEvent) => {
+            if (progressEvent.loaded) {
+              uploadedBytesPerFile[index] = progressEvent.loaded
+              const totalLoaded = uploadedBytesPerFile.reduce((a, b) => a + b, 0)
+              setUploadProgress(Math.round((totalLoaded * 100) / Math.max(totalBytes, 1)))
+            }
+          },
         })
-      }
+      })
+
+      await Promise.all(uploadPromises)
 
       setFiles([])
       setTag('EVIDENCE')
@@ -83,6 +98,7 @@ export function UploadForm({ caseId, onUploaded, documentGroupId }: UploadFormPr
       setError(err.response?.data?.message || 'Upload failed')
     } finally {
       setUploading(false)
+      setUploadProgress(0)
     }
   }
 
@@ -179,6 +195,18 @@ export function UploadForm({ caseId, onUploaded, documentGroupId }: UploadFormPr
           ))}
         </div>
       </div>
+
+      {uploading && (
+        <div style={{ marginTop: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '0.25rem', color: 'var(--text-secondary)' }}>
+            <span>Encrypting & Uploading...</span>
+            <span>{uploadProgress}%</span>
+          </div>
+          <div style={{ width: '100%', height: '8px', backgroundColor: 'var(--bg-app)', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
+            <div style={{ height: '100%', backgroundColor: 'var(--primary)', width: `${uploadProgress}%`, transition: 'width 0.2s ease-in-out' }} />
+          </div>
+        </div>
+      )}
 
       <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
         <button

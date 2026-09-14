@@ -84,6 +84,8 @@ export default function CaseDetail() {
   const [isSearching, setIsSearching] = useState(false)
   const [accessUpdating, setAccessUpdating] = useState(false)
 
+  const [expandedDocs, setExpandedDocs] = useState<Set<string>>(new Set())
+
   // Case Notes
   const [newNoteBody, setNewNoteBody] = useState('')
   const [noteSubmitting, setNoteSubmitting] = useState(false)
@@ -253,6 +255,15 @@ export default function CaseDetail() {
     navigator.clipboard.writeText(hash)
     setCopiedHashId(id)
     setTimeout(() => setCopiedHashId(null), 2000)
+  }
+
+  const toggleExpand = (groupId: string) => {
+    setExpandedDocs((prev) => {
+      const newSet = new Set(prev)
+      if (newSet.has(groupId)) newSet.delete(groupId)
+      else newSet.add(groupId)
+      return newSet
+    })
   }
 
   return (
@@ -470,91 +481,133 @@ export default function CaseDetail() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredDocuments.map((doc) => (
-                      <tr key={doc.id}>
-                        <td>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <FileText size={18} style={{ color: 'var(--primary)', flexShrink: 0 }} />
-                            <strong
-                              style={{
-                                color: 'var(--text-primary)',
-                                cursor: 'pointer',
-                              }}
-                              onClick={() => setPreviewDoc(doc)}
-                              title="Click to preview"
-                            >
-                              {doc.originalFileName}
-                            </strong>
-                          </div>
-                        </td>
-                        <td>
-                          <TagBadge tag={doc.tag} />
-                        </td>
-                        <td>
-                          <span className="badge-version">v{doc.version}</span>
-                        </td>
-                        <td>{(doc.fileSizeBytes / 1024).toFixed(1)} KB</td>
-                        <td>
-                          <div
-                            className="hash-chip"
-                            title={doc.sha256Hash}
-                            onClick={() => handleCopyHash(doc.id, doc.sha256Hash)}
-                            style={{ cursor: 'pointer' }}
-                          >
-                            <span>{doc.sha256Hash.substring(0, 10)}...</span>
-                            {copiedHashId === doc.id ? (
-                              <Check size={12} style={{ color: 'var(--success-text)' }} />
-                            ) : (
-                              <Copy size={12} />
-                            )}
-                          </div>
-                        </td>
-                        <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                          {new Date(doc.uploadedAt).toLocaleString()}
-                        </td>
-                        <td>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                            <button
-                              type="button"
-                              className="btn btn-secondary btn-sm"
-                              onClick={() => setPreviewDoc(doc)}
-                              title="Preview Document"
-                            >
-                              <Eye size={14} />
-                              <span>Preview</span>
-                            </button>
+                    {filteredDocuments.map((doc) => {
+                      const historyDocs = documents
+                        .filter((d) => d.documentGroupId === doc.documentGroupId && d.id !== doc.id)
+                        .sort((a, b) => b.version - a.version)
+                      const isExpanded = expandedDocs.has(doc.documentGroupId)
 
-                            <button
-                              type="button"
-                              className="btn btn-outline btn-sm"
-                              onClick={() => handleDownload(doc)}
-                              title="Download & Verify Integrity"
+                      const renderRow = (d: DocumentSummary, isHistory: boolean) => (
+                        <tr key={d.id} style={isHistory ? { backgroundColor: 'var(--bg-app)', borderLeft: '3px solid var(--border-subtle)' } : {}}>
+                          <td style={isHistory ? { paddingLeft: '2rem' } : {}}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <FileText size={18} style={{ color: isHistory ? 'var(--text-muted)' : 'var(--primary)', flexShrink: 0 }} />
+                              <strong
+                                style={{
+                                  color: 'var(--text-primary)',
+                                  cursor: 'pointer',
+                                  fontWeight: isHistory ? 500 : 700
+                                }}
+                                onClick={() => setPreviewDoc(d)}
+                                title="Click to preview"
+                              >
+                                {d.originalFileName}
+                              </strong>
+                            </div>
+                          </td>
+                          <td>
+                            <TagBadge tag={d.tag} />
+                          </td>
+                          <td>
+                            <span className="badge-version">v{d.version}</span>
+                          </td>
+                          <td>{(d.fileSizeBytes / 1024).toFixed(1)} KB</td>
+                          <td>
+                            <div
+                              className="hash-chip"
+                              title={d.sha256Hash}
+                              onClick={() => handleCopyHash(d.id, d.sha256Hash)}
+                              style={{ cursor: 'pointer' }}
                             >
-                              <Download size={14} />
-                            </button>
+                              <span>{d.sha256Hash.substring(0, 10)}...</span>
+                              {copiedHashId === d.id ? (
+                                <Check size={12} style={{ color: 'var(--success-text)' }} />
+                              ) : (
+                                <Copy size={12} />
+                              )}
+                            </div>
+                          </td>
+                          <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                            {new Date(d.uploadedAt).toLocaleString()}
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                              <button
+                                type="button"
+                                className="btn btn-secondary btn-sm"
+                                onClick={() => setPreviewDoc(d)}
+                                title="Preview Document"
+                              >
+                                <Eye size={14} />
+                                <span>Preview</span>
+                              </button>
 
-                            <button
-                              type="button"
-                              className="btn btn-outline btn-sm"
-                              onClick={() => setUploadingVersionFor(doc.documentGroupId)}
-                              title="Upload New Version"
-                            >
-                              <Plus size={14} />
-                              <span>New Ver</span>
-                            </button>
+                              <button
+                                type="button"
+                                className="btn btn-outline btn-sm"
+                                onClick={() => handleDownload(d)}
+                                title="Download & Verify Integrity"
+                              >
+                                <Download size={14} />
+                              </button>
 
-                            <button
-                              type="button"
-                              className="btn btn-danger btn-sm"
-                              onClick={() => handleDeleteDocument(doc.id)}
-                              title="Soft-Delete"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                              {!isHistory && (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="btn btn-outline btn-sm"
+                                    onClick={() => setUploadingVersionFor(d.documentGroupId)}
+                                    title="Upload New Version"
+                                  >
+                                    <Plus size={14} />
+                                    <span>New Ver</span>
+                                  </button>
+
+                                  {historyDocs.length > 0 && (
+                                    <button
+                                      type="button"
+                                      className="btn btn-outline btn-sm"
+                                      onClick={() => toggleExpand(d.documentGroupId)}
+                                      title={isExpanded ? "Hide History" : "Show History"}
+                                    >
+                                      <Clock size={14} />
+                                      <span>{historyDocs.length} Older</span>
+                                    </button>
+                                  )}
+
+                                  <button
+                                    type="button"
+                                    className="btn btn-danger btn-sm"
+                                    onClick={() => handleDeleteDocument(d.id)}
+                                    title="Soft-Delete"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </>
+                              )}
+                              
+                              {isHistory && (
+                                <button
+                                  type="button"
+                                  className="btn btn-danger btn-sm"
+                                  onClick={() => handleDeleteDocument(d.id)}
+                                  title="Soft-Delete"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )
+
+                      return (
+                        <React.Fragment key={doc.documentGroupId}>
+                          {renderRow(doc, false)}
+                          {isExpanded && historyDocs.map((hDoc) => renderRow(hDoc, true))}
+                        </React.Fragment>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>

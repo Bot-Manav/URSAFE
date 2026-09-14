@@ -9,10 +9,13 @@ import {
   Scale,
   RefreshCw,
   UserCheck,
-  AlertCircle
+  AlertCircle,
+  KeyRound
 } from 'lucide-react'
 import { apiClient } from '../api/client'
 import { RoleBadge } from '../components/RoleBadge'
+import { useAuth, Role } from '../context/AuthContext'
+import { updateUserRole, resetUserMfa } from '../api/admin'
 
 interface UserItem {
   id: string
@@ -22,6 +25,7 @@ interface UserItem {
 }
 
 export default function UsersDirectory() {
+  const { user } = useAuth()
   const [users, setUsers] = useState<UserItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -61,6 +65,25 @@ export default function UsersDirectory() {
     if (!name) return 'U'
     const parts = name.split(' ')
     return parts.map((p) => p[0]).join('').substring(0, 2).toUpperCase()
+  }
+
+  const handleRoleChange = async (userId: string, newRole: Role) => {
+    try {
+      await updateUserRole(userId, newRole)
+      setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u))
+    } catch (err) {
+      alert('Failed to update role')
+    }
+  }
+
+  const handleResetMfa = async (userId: string) => {
+    if (!confirm('Are you sure you want to reset 2FA for this user? They will need to re-register their authenticator app.')) return
+    try {
+      await resetUserMfa(userId)
+      alert('2FA has been successfully reset.')
+    } catch (err) {
+      alert('Failed to reset 2FA')
+    }
   }
 
   // Count stats
@@ -216,6 +239,7 @@ export default function UsersDirectory() {
                   <th>Departmental Role</th>
                   <th>Official Email Address</th>
                   <th>Access Identifier</th>
+                  {user?.role === 'ADMIN' && <th>Actions (Admin)</th>}
                 </tr>
               </thead>
               <tbody>
@@ -253,6 +277,35 @@ export default function UsersDirectory() {
                         {u.id.substring(0, 13)}...
                       </span>
                     </td>
+                    {user?.role === 'ADMIN' && (
+                      <td>
+                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                          <select
+                            className="form-select form-select-sm"
+                            value={u.role}
+                            onChange={(e) => handleRoleChange(u.id, e.target.value as Role)}
+                            style={{ width: '130px', fontSize: '0.8rem', padding: '0.2rem 1.5rem 0.2rem 0.5rem' }}
+                          >
+                            <option value="LAW_ENFORCEMENT">LE</option>
+                            <option value="INVESTIGATION_OFFICER">IO</option>
+                            <option value="FORENSIC_OFFICER">Forensics</option>
+                            <option value="LEGAL_COURT">Court</option>
+                            <option value="AUDITOR">Auditor</option>
+                            <option value="SUPERVISOR">Supervisor</option>
+                            <option value="ADMIN">Admin</option>
+                          </select>
+                          <button
+                            type="button"
+                            className="btn btn-sm"
+                            style={{ backgroundColor: 'var(--warning-bg)', color: 'var(--warning-text)', padding: '0.2rem 0.5rem' }}
+                            onClick={() => handleResetMfa(u.id)}
+                            title="Reset 2FA"
+                          >
+                            <KeyRound size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

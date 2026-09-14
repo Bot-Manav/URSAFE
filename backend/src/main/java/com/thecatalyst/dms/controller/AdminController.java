@@ -7,6 +7,8 @@ import com.thecatalyst.dms.exception.ApiException;
 import com.thecatalyst.dms.repository.UserRepository;
 import com.thecatalyst.dms.security.AuthenticatedUser;
 import com.thecatalyst.dms.service.AuditService;
+import com.thecatalyst.dms.service.AuthService;
+import com.thecatalyst.dms.entity.Role;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -24,10 +26,12 @@ public class AdminController {
 
     private final UserRepository userRepository;
     private final AuditService auditService;
+    private final AuthService authService;
 
-    public AdminController(UserRepository userRepository, AuditService auditService) {
+    public AdminController(UserRepository userRepository, AuditService auditService, AuthService authService) {
         this.userRepository = userRepository;
         this.auditService = auditService;
+        this.authService = authService;
     }
 
     @GetMapping
@@ -63,6 +67,29 @@ public class AdminController {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid action");
         }
 
+        return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/{id}/role")
+    @Transactional
+    public ResponseEntity<Void> updateUserRole(@PathVariable UUID id,
+                                               @RequestBody com.thecatalyst.dms.dto.UpdateRoleRequest request,
+                                               @AuthenticationPrincipal AuthenticatedUser actor) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "User not found"));
+        
+        user.setRole(request.role());
+        userRepository.save(user);
+        
+        auditService.log(actor.id(), "ROLE_UPDATE", null, null, "Updated role for user " + user.getEmail() + " to " + request.role(), "internal");
+        
+        return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/{id}/mfa-reset")
+    public ResponseEntity<Void> resetUserMfa(@PathVariable UUID id,
+                                             @AuthenticationPrincipal AuthenticatedUser actor) {
+        authService.resetUserMfa(id, actor.id());
         return ResponseEntity.noContent().build();
     }
 }

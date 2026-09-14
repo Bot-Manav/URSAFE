@@ -223,6 +223,19 @@ public class AuthService {
     }
 
     @Transactional
+    public void resetUserMfa(java.util.UUID userId, java.util.UUID adminId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "User not found"));
+        
+        user.setMfaEnabled(false);
+        user.setEncryptedTotpSecret(null);
+        user.setTotpSecretIv(null);
+        userRepository.save(user);
+        
+        auditService.log(adminId, "MFA_RESET", null, null, "Reset MFA for user " + user.getEmail(), "internal");
+    }
+
+    @Transactional
     public void requestPasswordReset(ForgotPasswordRequest req) {
         Optional<User> userOpt = userRepository.findByEmail(req.email().toLowerCase().trim());
         if (userOpt.isEmpty()) {

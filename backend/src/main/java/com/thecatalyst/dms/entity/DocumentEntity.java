@@ -77,4 +77,14 @@ public class DocumentEntity {
     @Column(nullable = false)
     @Builder.Default
     private DocumentTag tag = DocumentTag.OTHER;
+
+    @Column(length = 20)
+    @Builder.Default
+    private String ocrStatus = "PENDING"; // PENDING, COMPLETED, FAILED, NOT_APPLICABLE
+
+    @Column(columnDefinition = "TEXT")
+    private String encryptedOcrTextBase64;
+
+    @Column(length = 50)
+    private String ocrIvBase64;
 }

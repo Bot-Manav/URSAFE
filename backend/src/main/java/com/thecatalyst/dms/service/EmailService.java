@@ -14,10 +14,16 @@ import java.util.Map;
 public class EmailService {
 
     private final String brevoApiKey;
+    private final String brevoSenderEmail;
+    private final String brevoSenderName;
     private final RestTemplate restTemplate;
 
-    public EmailService(@Value("${brevo.api.key:}") String brevoApiKey) {
+    public EmailService(@Value("${brevo.api.key:}") String brevoApiKey,
+                        @Value("${brevo.sender.email:}") String brevoSenderEmail,
+                        @Value("${brevo.sender.name:URSAFE DMS}") String brevoSenderName) {
         this.brevoApiKey = brevoApiKey;
+        this.brevoSenderEmail = brevoSenderEmail;
+        this.brevoSenderName = brevoSenderName;
         this.restTemplate = new RestTemplate();
     }
 
@@ -38,7 +44,8 @@ public class EmailService {
         headers.set("api-key", brevoApiKey);
         headers.setAccept(List.of(MediaType.APPLICATION_JSON));
 
-        Map<String, Object> sender = Map.of("name", "URSAFE Secure DMS", "email", "no-reply@ursafe-dms.local");
+        String senderEmail = (brevoSenderEmail != null && !brevoSenderEmail.isBlank()) ? brevoSenderEmail : "no-reply@ursafe-dms.local";
+        Map<String, Object> sender = Map.of("name", brevoSenderName, "email", senderEmail);
         List<Map<String, String>> to = List.of(Map.of("email", toEmail));
         
         String htmlContent = String.format(
